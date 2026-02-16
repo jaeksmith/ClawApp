@@ -1,0 +1,1 @@
+# ClawApp ProGuard rules
