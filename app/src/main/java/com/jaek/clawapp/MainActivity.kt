@@ -34,8 +34,7 @@ class MainActivity : ComponentActivity() {
     private val serviceRunning = mutableStateOf(false)
 
     // TODO: Move to settings/preferences
-    private val gatewayUrl = mutableStateOf("http://100.126.78.128:18789")
-    private val gatewayToken = mutableStateOf("")
+    private val relayUrl = mutableStateOf("ws://100.126.78.128:18790")
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -44,10 +43,9 @@ class MainActivity : ComponentActivity() {
                 it.onConnectionStateChanged = { connected ->
                     connectionState.value = connected
                 }
-                val url = gatewayUrl.value
-                val token = gatewayToken.value
-                if (url.isNotBlank() && token.isNotBlank()) {
-                    it.configure(url, token)
+                val url = relayUrl.value
+                if (url.isNotBlank()) {
+                    it.configure(url)
                 }
             }
             bound = true
@@ -71,8 +69,7 @@ class MainActivity : ComponentActivity() {
 
         // Load saved settings
         val prefs = getSharedPreferences("claw_settings", MODE_PRIVATE)
-        gatewayUrl.value = prefs.getString("gateway_url", gatewayUrl.value) ?: gatewayUrl.value
-        gatewayToken.value = prefs.getString("gateway_token", "") ?: ""
+        relayUrl.value = prefs.getString("relay_url", relayUrl.value) ?: relayUrl.value
 
         // Request notification permission on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -86,10 +83,8 @@ class MainActivity : ComponentActivity() {
                 ClawAppScreen(
                     isConnected = connectionState.value,
                     isServiceRunning = serviceRunning.value,
-                    gatewayUrl = gatewayUrl.value,
-                    gatewayToken = gatewayToken.value,
-                    onUrlChange = { gatewayUrl.value = it },
-                    onTokenChange = { gatewayToken.value = it },
+                    relayUrl = relayUrl.value,
+                    onUrlChange = { relayUrl.value = it },
                     onStartService = { startClawService() },
                     onStopService = { stopClawService() },
                     onTestPing = { testPing() }
@@ -100,8 +95,7 @@ class MainActivity : ComponentActivity() {
 
     private fun saveSettings() {
         getSharedPreferences("claw_settings", MODE_PRIVATE).edit()
-            .putString("gateway_url", gatewayUrl.value)
-            .putString("gateway_token", gatewayToken.value)
+            .putString("relay_url", relayUrl.value)
             .apply()
     }
 
@@ -146,10 +140,8 @@ class MainActivity : ComponentActivity() {
 fun ClawAppScreen(
     isConnected: Boolean,
     isServiceRunning: Boolean,
-    gatewayUrl: String,
-    gatewayToken: String,
+    relayUrl: String,
     onUrlChange: (String) -> Unit,
-    onTokenChange: (String) -> Unit,
     onStartService: () -> Unit,
     onStopService: () -> Unit,
     onTestPing: () -> Unit
@@ -223,20 +215,12 @@ fun ClawAppScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Gateway Settings", fontWeight = FontWeight.Medium, fontSize = 16.sp)
+                    Text("Connection Settings", fontWeight = FontWeight.Medium, fontSize = 16.sp)
 
                     OutlinedTextField(
-                        value = gatewayUrl,
+                        value = relayUrl,
                         onValueChange = onUrlChange,
-                        label = { Text("Gateway URL") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-
-                    OutlinedTextField(
-                        value = gatewayToken,
-                        onValueChange = onTokenChange,
-                        label = { Text("Auth Token") },
+                        label = { Text("Relay URL (ws://)") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -252,7 +236,7 @@ fun ClawAppScreen(
                     Button(
                         onClick = onStartService,
                         modifier = Modifier.weight(1f),
-                        enabled = gatewayUrl.isNotBlank() && gatewayToken.isNotBlank()
+                        enabled = relayUrl.isNotBlank()
                     ) {
                         Text("Start Service")
                     }

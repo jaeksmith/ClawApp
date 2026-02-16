@@ -11,17 +11,13 @@ import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.jaek.clawapp.MainActivity
-import com.jaek.clawapp.R
-import com.jaek.clawapp.api.ClawApi
-import okhttp3.*
 import java.util.*
-import java.util.concurrent.TimeUnit
 
 /**
- * Foreground service that maintains connection to the Claw gateway.
- * Handles ping/find-my-phone commands and keeps the app alive in background.
+ * Foreground service that maintains a WebSocket connection to the Claw relay.
+ * Handles commands (ping/find-my-phone, etc.) pushed from the server.
  */
-class ClawService : Service(), TextToSpeech.OnInitListener {
+class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.CommandListener {
 
     companion object {
         const val TAG = "ClawService"
@@ -29,14 +25,13 @@ class ClawService : Service(), TextToSpeech.OnInitListener {
         const val NOTIFICATION_ID = 1
         const val ACTION_PING_PHONE = "com.jaek.clawapp.PING_PHONE"
         const val EXTRA_MESSAGE = "message"
-        private const val POLL_INTERVAL_MS = 30_000L
     }
 
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var mediaPlayer: MediaPlayer? = null
     private val handler = Handler(Looper.getMainLooper())
-    private var api: ClawApi? = null
+    private var relay: RelayConnection? = null
     private var isConnected = false
 
     // Listeners for UI updates
@@ -56,62 +51,73 @@ class ClawService : Service(), TextToSpeech.OnInitListener {
             }
             else -> {
                 startForeground(NOTIFICATION_ID, buildNotification("Connecting..."))
-                startPolling()
             }
         }
         return START_STICKY
     }
 
-    fun configure(baseUrl: String, token: String) {
-        api = ClawApi(baseUrl, token)
-        checkConnection()
+    fun configure(relayUrl: String) {
+        relay?.disconnect()
+        relay = RelayConnection(
+            url = relayUrl,
+            deviceInfo = mapOf(
+                "device" to Build.MODEL,
+                "app" to "ClawApp",
+                "version" to "0.1.0"
+            )
+        ).also {
+            it.setCommandListener(this)
+            it.connect()
+        }
     }
 
-    private fun startPolling() {
-        handler.postDelayed(object : Runnable {
-            override fun run() {
-                checkConnection()
-                handler.postDelayed(this, POLL_INTERVAL_MS)
+    // --- RelayConnection.CommandListener ---
+
+    override fun onCommand(action: String, message: String, extra: Map<String, Any?>) {
+        Log.i(TAG, "Command received: action=$action message=$message")
+        when (action) {
+            "ping" -> pingPhone(message.ifEmpty { "Hey! Claw is looking for you!" })
+            "tts" -> {
+                if (ttsReady) {
+                    tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "cmd_${System.currentTimeMillis()}")
+                }
             }
-        }, POLL_INTERVAL_MS)
+            "vibrate" -> {
+                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                vibrator.vibrate(
+                    VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500), -1)
+                )
+            }
+            "notify" -> {
+                val title = extra["title"] as? String ?: "Claw"
+                showNotification(title, message)
+            }
+            else -> Log.w(TAG, "Unknown command action: $action")
+        }
     }
 
-    private fun checkConnection() {
-        val currentApi = api
-        if (currentApi == null) {
-            Log.d(TAG, "checkConnection: api not configured yet")
-            return
-        }
-        Log.d(TAG, "checkConnection: pinging gateway...")
-        currentApi.ping { result ->
-            val connected = result.isSuccess && result.getOrNull()?.ok == true
-            Log.d(TAG, "checkConnection: result=$result connected=$connected wasConnected=$isConnected")
-            isConnected = connected
-            handler.post {
-                onConnectionStateChanged?.invoke(connected)
-                updateNotification(if (connected) "Connected to Claw" else "Disconnected")
-            }
-        }
+    override fun onConnectionChanged(connected: Boolean) {
+        isConnected = connected
+        onConnectionStateChanged?.invoke(connected)
+        updateNotification(if (connected) "Connected to Claw" else "Reconnecting...")
     }
 
     fun isConnected(): Boolean = isConnected
 
     /**
-     * Trigger phone ping — plays alarm sound and optionally speaks a message.
+     * Trigger phone ping — plays alarm sound, vibrates, and speaks a message.
      */
     private fun pingPhone(message: String) {
         Log.i(TAG, "PING PHONE: $message")
 
         // Vibrate
         val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(
-                VibrationEffect.createWaveform(
-                    longArrayOf(0, 500, 200, 500, 200, 500),
-                    -1
-                )
+        vibrator.vibrate(
+            VibrationEffect.createWaveform(
+                longArrayOf(0, 500, 200, 500, 200, 500),
+                -1
             )
-        }
+        )
 
         // Play alarm sound
         try {
@@ -142,15 +148,18 @@ class ClawService : Service(), TextToSpeech.OnInitListener {
         }, 1000)
 
         // Show a heads-up notification
+        showNotification("📍 Claw is looking for you!", message)
+    }
+
+    private fun showNotification(title: String, text: String) {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("📍 Claw is looking for you!")
-            .setContentText(message)
+            .setContentTitle(title)
+            .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
             .build()
-
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(NOTIFICATION_ID + 1, notification)
     }
@@ -211,6 +220,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        relay?.disconnect()
         stopAlarm()
         tts?.shutdown()
         super.onDestroy()
