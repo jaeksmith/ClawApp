@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Crab claw icon - simple stylized claw -->
+    <path
+        android:fillColor="#FF6B35"
+        android:pathData="M54,30 C45,30 38,37 38,46 C38,50 39,53 41,56 L34,63 C32,65 32,68 34,70 C36,72 39,72 41,70 L48,63 C50,64 52,65 54,65 C56,65 58,64 60,63 L67,70 C69,72 72,72 74,70 C76,68 76,65 74,63 L67,56 C69,53 70,50 70,46 C70,37 63,30 54,30 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M48,44 C48,42 50,40 52,40 C54,40 56,42 56,44 C56,46 54,48 52,48 C50,48 48,46 48,44 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M56,44 C56,42 58,40 60,40 C62,40 64,42 64,44 C64,46 62,48 60,48 C58,48 56,46 56,44 Z"/>
+</vector>
