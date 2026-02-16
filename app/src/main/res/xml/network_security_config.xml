@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow cleartext (HTTP) to Tailscale IPs -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">100.126.78.128</domain>
+        <domain includeSubdomains="true">100.82.254.118</domain>
+        <domain includeSubdomains="true">100.92.187.28</domain>
+    </domain-config>
+</network-security-config>

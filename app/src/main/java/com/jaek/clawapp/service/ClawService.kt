@@ -77,14 +77,19 @@ class ClawService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun checkConnection() {
-        api?.ping { result ->
+        val currentApi = api
+        if (currentApi == null) {
+            Log.d(TAG, "checkConnection: api not configured yet")
+            return
+        }
+        Log.d(TAG, "checkConnection: pinging gateway...")
+        currentApi.ping { result ->
             val connected = result.isSuccess && result.getOrNull()?.ok == true
-            if (connected != isConnected) {
-                isConnected = connected
-                handler.post {
-                    onConnectionStateChanged?.invoke(connected)
-                    updateNotification(if (connected) "Connected to Claw" else "Disconnected")
-                }
+            Log.d(TAG, "checkConnection: result=$result connected=$connected wasConnected=$isConnected")
+            isConnected = connected
+            handler.post {
+                onConnectionStateChanged?.invoke(connected)
+                updateNotification(if (connected) "Connected to Claw" else "Disconnected")
             }
         }
     }
