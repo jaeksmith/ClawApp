@@ -51,6 +51,14 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
             }
             else -> {
                 startForeground(NOTIFICATION_ID, buildNotification("Connecting..."))
+                // Auto-configure from saved settings (for boot start)
+                if (relay == null) {
+                    val prefs = getSharedPreferences("claw_settings", Context.MODE_PRIVATE)
+                    val url = prefs.getString("relay_url", null)
+                    if (!url.isNullOrBlank()) {
+                        configure(url)
+                    }
+                }
             }
         }
         return START_STICKY
