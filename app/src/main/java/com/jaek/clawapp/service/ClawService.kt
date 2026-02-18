@@ -58,13 +58,16 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
 
     fun configure(relayUrl: String) {
         relay?.disconnect()
+        val prefs = getSharedPreferences("claw_settings", Context.MODE_PRIVATE)
+        val fcmToken = prefs.getString("fcm_token", null)
         relay = RelayConnection(
             url = relayUrl,
             deviceInfo = mapOf(
                 "device" to Build.MODEL,
                 "app" to "ClawApp",
                 "version" to "0.1.0"
-            )
+            ),
+            fcmToken = fcmToken
         ).also {
             it.setCommandListener(this)
             it.connect()

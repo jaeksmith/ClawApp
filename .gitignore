@@ -1,5 +1,7 @@
 *.iml
 .gradle
+app/google-services.json
+*firebase-adminsdk*
 /local.properties
 /.idea
 .DS_Store

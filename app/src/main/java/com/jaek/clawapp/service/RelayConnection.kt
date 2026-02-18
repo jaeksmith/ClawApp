@@ -11,7 +11,8 @@ import java.util.concurrent.TimeUnit
  */
 class RelayConnection(
     private val url: String,
-    private val deviceInfo: Map<String, String> = emptyMap()
+    private val deviceInfo: Map<String, String> = emptyMap(),
+    private val fcmToken: String? = null
 ) {
     companion object {
         const val TAG = "RelayConnection"
@@ -65,7 +66,8 @@ class RelayConnection(
                 updateConnected(true)
 
                 // Register with device info
-                val reg = mapOf("type" to "register", "info" to deviceInfo)
+                val reg = mutableMapOf<String, Any?>("type" to "register", "info" to deviceInfo)
+                if (fcmToken != null) reg["fcmToken"] = fcmToken
                 webSocket.send(gson.toJson(reg))
             }
 
