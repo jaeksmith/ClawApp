@@ -46,7 +46,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_PING_PHONE -> {
-                val message = intent.getStringExtra(EXTRA_MESSAGE) ?: "Hey! Claw is looking for you!"
+                val message = intent.getStringExtra(EXTRA_MESSAGE) ?: "Hey! Your assistant is looking for you!"
                 pingPhone(message)
             }
             else -> {
@@ -87,10 +87,13 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     override fun onCommand(action: String, message: String, extra: Map<String, Any?>) {
         Log.i(TAG, "Command received: action=$action message=$message")
         when (action) {
-            "ping" -> pingPhone(message.ifEmpty { "Hey! Claw is looking for you!" })
+            "ping" -> pingPhone(message.ifEmpty { "Hey! Your assistant is looking for you!" })
             "tts" -> {
-                if (ttsReady) {
-                    tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "cmd_${System.currentTimeMillis()}")
+                if (ttsReady && message.isNotEmpty()) {
+                    val params = Bundle().apply {
+                        putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, android.media.AudioManager.STREAM_ALARM)
+                    }
+                    tts?.speak(message, TextToSpeech.QUEUE_FLUSH, params, "cmd_${System.currentTimeMillis()}")
                 }
             }
             "vibrate" -> {
