@@ -43,9 +43,15 @@ class MainActivity : ComponentActivity() {
                 it.onConnectionStateChanged = { connected ->
                     connectionState.value = connected
                 }
-                val url = relayUrl.value
-                if (url.isNotBlank()) {
-                    it.configure(url)
+                // Only configure (and reset WebSocket) if not already connected
+                if (!it.isConnected()) {
+                    val url = relayUrl.value
+                    if (url.isNotBlank()) {
+                        it.configure(url)
+                    }
+                } else {
+                    // Sync current connection state to UI
+                    connectionState.value = it.isConnected()
                 }
             }
             bound = true
@@ -126,11 +132,24 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onDestroy() {
+    override fun onStart() {
+        super.onStart()
+        // Auto-bind to service if it's already running (e.g. after app restart/swipe)
+        val intent = Intent(this, ClawService::class.java)
+        bindService(intent, connection, Context.BIND_AUTO_CREATE)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Unbind but don't stop the service — it keeps running in background
         if (bound) {
             unbindService(connection)
             bound = false
+            serviceRunning.value = false
         }
+    }
+
+    override fun onDestroy() {
         super.onDestroy()
     }
 }
