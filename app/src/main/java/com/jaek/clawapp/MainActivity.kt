@@ -135,21 +135,17 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         // Auto-bind to service if it's already running (e.g. after app restart/swipe)
-        val intent = Intent(this, ClawService::class.java)
-        bindService(intent, connection, Context.BIND_AUTO_CREATE)
-    }
-
-    override fun onStop() {
-        super.onStop()
-        // Unbind but don't stop the service — it keeps running in background
-        if (bound) {
-            unbindService(connection)
-            bound = false
-            serviceRunning.value = false
+        if (!bound) {
+            val intent = Intent(this, ClawService::class.java)
+            bindService(intent, connection, Context.BIND_AUTO_CREATE)
         }
     }
 
     override fun onDestroy() {
+        if (bound) {
+            unbindService(connection)
+            bound = false
+        }
         super.onDestroy()
     }
 }
