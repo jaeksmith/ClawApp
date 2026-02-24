@@ -11,6 +11,9 @@ import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.jaek.clawapp.MainActivity
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.util.*
 
 /**
@@ -32,10 +35,10 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     private var mediaPlayer: MediaPlayer? = null
     private val handler = Handler(Looper.getMainLooper())
     private var relay: RelayConnection? = null
-    private var isConnected = false
 
-    // Listeners for UI updates
-    var onConnectionStateChanged: ((Boolean) -> Unit)? = null
+    // Observable connection state — always emits current value on collection (no race)
+    private val _connectionState = MutableStateFlow(false)
+    val connectionState: StateFlow<Boolean> = _connectionState.asStateFlow()
 
     override fun onCreate() {
         super.onCreate()
@@ -111,12 +114,11 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     }
 
     override fun onConnectionChanged(connected: Boolean) {
-        isConnected = connected
-        onConnectionStateChanged?.invoke(connected)
+        _connectionState.value = connected
         updateNotification(if (connected) "Connected to Claw" else "Reconnecting...")
     }
 
-    fun isConnected(): Boolean = isConnected
+    fun isConnected(): Boolean = _connectionState.value
 
     /**
      * Trigger phone ping — plays alarm sound, vibrates, and speaks a message.

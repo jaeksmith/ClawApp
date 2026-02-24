@@ -23,8 +23,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.lifecycleScope
 import com.jaek.clawapp.service.ClawService
 import com.jaek.clawapp.ui.theme.ClawAppTheme
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -32,6 +35,7 @@ class MainActivity : ComponentActivity() {
     private var bound = false
     private val connectionState = mutableStateOf(false)
     private val serviceRunning = mutableStateOf(false)
+    private var connectionCollectJob: Job? = null
 
     // TODO: Move to settings/preferences
     private val relayUrl = mutableStateOf("ws://100.126.78.128:18790")
@@ -39,29 +43,36 @@ class MainActivity : ComponentActivity() {
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as ClawService.LocalBinder
-            clawService = binder.getService().also {
-                it.onConnectionStateChanged = { connected ->
+            val svc = binder.getService()
+            clawService = svc
+
+            // Collect StateFlow — emits current value immediately, then on every change
+            connectionCollectJob?.cancel()
+            connectionCollectJob = lifecycleScope.launch {
+                svc.connectionState.collect { connected ->
                     connectionState.value = connected
                 }
-                // Only configure (and reset WebSocket) if not already connected
-                if (!it.isConnected()) {
-                    val url = relayUrl.value
-                    if (url.isNotBlank()) {
-                        it.configure(url)
-                    }
-                } else {
-                    // Sync current connection state to UI
-                    connectionState.value = it.isConnected()
+            }
+
+            // Configure relay if not already connected
+            if (!svc.isConnected()) {
+                val url = relayUrl.value
+                if (url.isNotBlank()) {
+                    svc.configure(url)
                 }
             }
+
             bound = true
             serviceRunning.value = true
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
+            connectionCollectJob?.cancel()
+            connectionCollectJob = null
             clawService = null
             bound = false
             serviceRunning.value = false
+            connectionState.value = false
         }
     }
 
