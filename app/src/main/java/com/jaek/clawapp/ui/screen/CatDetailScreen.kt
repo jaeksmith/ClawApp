@@ -1,10 +1,6 @@
 package com.jaek.clawapp.ui.screen
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -12,38 +8,32 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jaek.clawapp.model.CatLocation
 import com.jaek.clawapp.model.CatState
-import com.jaek.clawapp.ui.ClawViewModel
-import java.text.SimpleDateFormat
-import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CatDetailScreen(
-    catName: String,
-    viewModel: ClawViewModel,
-    onBack: () -> Unit
+    cat: CatState,
+    onSave: (CatLocation) -> Unit,
+    onCancel: () -> Unit
 ) {
-    val catsMap by (viewModel.cats ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptyMap()) }).collectAsState()
-    val cat = catsMap[catName]
-
-    // Editable state
-    var selectedLocation by remember(cat) { mutableStateOf(cat?.state ?: CatLocation.UNKNOWN) }
-    val hasChanges = cat != null && selectedLocation != cat.state
+    var selectedLocation by remember { mutableStateOf(cat.state) }
+    val hasChange = selectedLocation != cat.state
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(catName) },
+                title = { Text(cat.name, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    IconButton(onClick = onCancel) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -56,106 +46,79 @@ fun CatDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Cat image placeholder
-            Box(
-                modifier = Modifier
-                    .size(140.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("🐱", fontSize = 72.sp)
-            }
+            // Cat emoji header
+            Text(
+                text = when (cat.state) {
+                    CatLocation.INSIDE -> "🏠"
+                    CatLocation.OUTSIDE -> "🌿"
+                    CatLocation.UNKNOWN -> "❓"
+                },
+                fontSize = 56.sp,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
 
-            // Cat name
-            Text(catName, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            // Current state label
+            Text(
+                text = "Where is ${cat.name}?",
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 20.sp,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
 
-            if (cat?.outdoorOnly == true) {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color(0xFF607D8B).copy(alpha = 0.2f)
-                ) {
-                    Text(
-                        "Outdoor only",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                        fontSize = 13.sp,
-                        color = Color(0xFF607D8B)
-                    )
-                }
-            }
-
-            // Location selector
+            // Location options
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        "Location",
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        modifier = Modifier.padding(bottom = 12.dp)
+                Column(modifier = Modifier.padding(8.dp)) {
+                    LocationOption(
+                        emoji = "🏠",
+                        label = "Inside",
+                        description = "Cat is indoors",
+                        selected = selectedLocation == CatLocation.INSIDE,
+                        onClick = { selectedLocation = CatLocation.INSIDE }
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        CatLocation.entries.forEach { location ->
-                            val isSelected = selectedLocation == location
-                            val isDisabled = cat?.outdoorOnly == true
-                            LocationChip(
-                                location = location,
-                                isSelected = isSelected,
-                                isDisabled = isDisabled,
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    if (!isDisabled) selectedLocation = location
-                                }
-                            )
-                        }
-                    }
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    LocationOption(
+                        emoji = "🌿",
+                        label = "Outside",
+                        description = "Cat is outdoors",
+                        selected = selectedLocation == CatLocation.OUTSIDE,
+                        onClick = { selectedLocation = CatLocation.OUTSIDE }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    LocationOption(
+                        emoji = "❓",
+                        label = "Unknown",
+                        description = "Not sure",
+                        selected = selectedLocation == CatLocation.UNKNOWN,
+                        onClick = { selectedLocation = CatLocation.UNKNOWN }
+                    )
                 }
-            }
-
-            // Last state change time
-            cat?.stateSetAt?.let { ts ->
-                val timeStr = SimpleDateFormat("MMM d, h:mm a", Locale.US).format(Date(ts))
-                Text(
-                    "Since $timeStr",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                )
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Cancel / Save buttons
+            // Save / Cancel
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedButton(
-                    onClick = onBack,
+                    onClick = onCancel,
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("Cancel")
                 }
                 Button(
-                    onClick = {
-                        if (hasChanges) {
-                            viewModel.setCatState(catName, selectedLocation)
-                        }
-                        onBack()
-                    },
+                    onClick = { onSave(selectedLocation) },
                     modifier = Modifier.weight(1f),
-                    enabled = cat?.outdoorOnly != true
+                    enabled = hasChange
                 ) {
-                    Text(if (hasChanges) "Save" else "Done")
+                    Text("Save")
                 }
             }
         }
@@ -163,40 +126,30 @@ fun CatDetailScreen(
 }
 
 @Composable
-fun LocationChip(
-    location: CatLocation,
-    isSelected: Boolean,
-    isDisabled: Boolean,
-    modifier: Modifier = Modifier,
+private fun LocationOption(
+    emoji: String,
+    label: String,
+    description: String,
+    selected: Boolean,
     onClick: () -> Unit
 ) {
-    val bgColor = if (isSelected) when (location) {
-        CatLocation.INSIDE -> Color(0xFF4CAF50).copy(alpha = 0.15f)
-        CatLocation.OUTSIDE -> Color(0xFFFF9800).copy(alpha = 0.15f)
-        CatLocation.UNKNOWN -> MaterialTheme.colorScheme.surfaceVariant
-    } else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-
-    val borderColor = if (isSelected) when (location) {
-        CatLocation.INSIDE -> Color(0xFF4CAF50)
-        CatLocation.OUTSIDE -> Color(0xFFFF9800)
-        CatLocation.UNKNOWN -> Color(0xFF9E9E9E)
-    } else Color.Transparent
-
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(bgColor)
-            .border(2.dp, borderColor, RoundedCornerShape(12.dp))
-            .clickable(enabled = !isDisabled, onClick = onClick)
-            .padding(vertical = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(location.emoji, fontSize = 22.sp)
-        Text(
-            location.displayName,
-            fontSize = 11.sp,
-            color = if (isDisabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                    else MaterialTheme.colorScheme.onSurface
-        )
+        RadioButton(selected = selected, onClick = onClick)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(emoji, fontSize = 22.sp)
+        Spacer(modifier = Modifier.width(10.dp))
+        Column {
+            Text(label, fontWeight = FontWeight.Medium, fontSize = 15.sp)
+            Text(
+                description,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+            )
+        }
     }
 }
