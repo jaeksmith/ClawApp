@@ -23,6 +23,8 @@ class RelayConnection(
     interface CommandListener {
         fun onCommand(action: String, message: String, extra: Map<String, Any?>)
         fun onConnectionChanged(connected: Boolean)
+        fun onCatStateSnapshot(cats: Map<String, Any?>, notifications: List<Any?>, lastCatOutAt: Long?)
+        fun onCatStateChanged(catName: String, state: String, stateSetAt: Long?, source: String)
     }
 
     private val client = OkHttpClient.Builder()
@@ -46,6 +48,16 @@ class RelayConnection(
     fun connect() {
         shouldReconnect = true
         doConnect()
+    }
+
+    fun send(message: String): Boolean {
+        return if (ws != null && isConnected) {
+            ws?.send(message)
+            true
+        } else {
+            Log.w(TAG, "send() called but not connected")
+            false
+        }
     }
 
     fun disconnect() {
@@ -100,6 +112,21 @@ class RelayConnection(
                         }
                         "welcome" -> {
                             Log.i(TAG, "Registered as ${msg["clientId"]}")
+                        }
+                        "cat_state_snapshot" -> {
+                            @Suppress("UNCHECKED_CAST")
+                            val catsMap = msg["cats"] as? Map<String, Any?> ?: emptyMap()
+                            @Suppress("UNCHECKED_CAST")
+                            val notifs = msg["notifications"] as? List<Any?> ?: emptyList()
+                            val lastOut = (msg["lastCatOutAt"] as? Double)?.toLong()
+                            handler.post { listener?.onCatStateSnapshot(catsMap, notifs, lastOut) }
+                        }
+                        "cat_state_changed" -> {
+                            val catName = msg["catName"] as? String ?: return
+                            val state = msg["state"] as? String ?: return
+                            val stateSetAt = (msg["stateSetAt"] as? Double)?.toLong()
+                            val source = msg["source"] as? String ?: "server"
+                            handler.post { listener?.onCatStateChanged(catName, state, stateSetAt, source) }
                         }
                     }
                 } catch (e: Exception) {

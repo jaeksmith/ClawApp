@@ -11,6 +11,8 @@ import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.jaek.clawapp.MainActivity
+import com.jaek.clawapp.model.CatLocation
+import com.jaek.clawapp.repository.CatRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +37,9 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     private var mediaPlayer: MediaPlayer? = null
     private val handler = Handler(Looper.getMainLooper())
     private var relay: RelayConnection? = null
+
+    // Cat state repository — shared with UI via binder
+    val catRepository = CatRepository()
 
     // Observable connection state — always emits current value on collection (no race)
     private val _connectionState = MutableStateFlow(false)
@@ -83,6 +88,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
             it.setCommandListener(this)
             it.connect()
         }
+        catRepository.sendWsMessage = { msg -> relay?.send(msg) }
     }
 
     // --- RelayConnection.CommandListener ---
@@ -116,6 +122,16 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     override fun onConnectionChanged(connected: Boolean) {
         _connectionState.value = connected
         updateNotification(if (connected) "Connected to Claw" else "Reconnecting...")
+    }
+
+    override fun onCatStateSnapshot(cats: Map<String, Any?>, notifications: List<Any?>, lastCatOutAt: Long?) {
+        Log.i(TAG, "Cat snapshot received: ${cats.keys}")
+        catRepository.applySnapshot(cats, notifications)
+    }
+
+    override fun onCatStateChanged(catName: String, state: String, stateSetAt: Long?, source: String) {
+        Log.i(TAG, "Cat state push: $catName -> $state (from $source)")
+        catRepository.applyStateChange(catName, state, stateSetAt)
     }
 
     fun isConnected(): Boolean = _connectionState.value

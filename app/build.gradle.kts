@@ -51,5 +51,7 @@ dependencies {
     implementation(libs.gson)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.navigation.compose)
+    implementation(libs.lifecycle.viewmodel.compose)
     debugImplementation(libs.androidx.ui.tooling)
 }
