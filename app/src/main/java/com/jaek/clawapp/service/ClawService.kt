@@ -165,7 +165,6 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
         val meow = delivery?.get("meow") as? Boolean ?: false
         val phoneSound = delivery?.get("phoneSound") as? Boolean ?: false
         val doTts = delivery?.get("tts") as? Boolean ?: false
-        val ttsText = delivery?.get("ttsText") as? String ?: message
         val bypassSilent = delivery?.get("bypassSilent") as? Boolean ?: true
 
         if (vibration) {
@@ -192,13 +191,12 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
             } catch (e: Exception) { AppLogger.e(TAG, "Error playing notification sound", e) }
         }
 
-        if (doTts && ttsReady) {
-            val resolvedText = ttsText.ifEmpty { message }
+        if (doTts && ttsReady && message.isNotEmpty()) {
             val streamType = if (bypassSilent) android.media.AudioManager.STREAM_ALARM
                             else android.media.AudioManager.STREAM_NOTIFICATION
             handler.postDelayed({
                 val params = Bundle().apply { putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, streamType) }
-                tts?.speak(resolvedText, TextToSpeech.QUEUE_ADD, params, "catnot_${System.currentTimeMillis()}")
+                tts?.speak(message, TextToSpeech.QUEUE_ADD, params, "catnot_${System.currentTimeMillis()}")
             }, if (meow || phoneSound) 1500L else 0L)
         }
 

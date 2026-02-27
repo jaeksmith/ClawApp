@@ -33,7 +33,6 @@ data class DeliveryOptions(
     val phoneSound: Boolean = false,
     val phoneSoundUri: String? = null,
     val tts: Boolean = false,
-    val ttsText: String = "{cats} have been outside.",
     /** If false, app respects the phone's ringer/silent mode for sound. True = always play (alarm stream). */
     val bypassSilent: Boolean = true
 )

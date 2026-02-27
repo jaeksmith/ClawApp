@@ -109,8 +109,14 @@ class MainActivity : ComponentActivity() {
                 var editingNotif by remember { mutableStateOf<CatNotification?>(null) }
                 var isNewNotif by remember { mutableStateOf(false) }
 
+                // Context-aware back navigation
                 BackHandler(enabled = currentScreen != Screen.HOME) {
-                    currentScreen = Screen.HOME
+                    currentScreen = when (currentScreen) {
+                        Screen.NOTIFICATION_EDIT -> Screen.NOTIFICATIONS
+                        Screen.NOTIFICATIONS    -> Screen.SETTINGS
+                        Screen.LOG              -> Screen.SETTINGS
+                        else                    -> Screen.HOME
+                    }
                 }
 
                 when (currentScreen) {

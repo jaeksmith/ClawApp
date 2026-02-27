@@ -117,7 +117,6 @@ class CatRepository {
             phoneSound = delivRaw["phoneSound"] as? Boolean ?: false,
             phoneSoundUri = delivRaw["phoneSoundUri"] as? String,
             tts = delivRaw["tts"] as? Boolean ?: false,
-            ttsText = delivRaw["ttsText"] as? String ?: "{cats} have been outside.",
             bypassSilent = delivRaw["bypassSilent"] as? Boolean ?: true
         ) else DeliveryOptions(tts = true, phoneSound = true)
 
