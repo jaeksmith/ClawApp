@@ -136,6 +136,15 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
 
     fun isConnected(): Boolean = _connectionState.value
 
+    /** Ask the relay to send a ping command back to this device — tests full server round-trip */
+    fun requestServerTestPing() {
+        val gson = com.google.gson.Gson()
+        relay?.send(gson.toJson(mapOf(
+            "type" to "request_test_ping",
+            "message" to "Server test ping — round trip confirmed!"
+        )))
+    }
+
     /**
      * Trigger phone ping — plays alarm sound, vibrates, and speaks a message.
      */

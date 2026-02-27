@@ -3,9 +3,6 @@ package com.jaek.clawapp.ui.screen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,7 +39,6 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text("🦀 ClawApp", fontWeight = FontWeight.Bold)
-                        // Connection dot
                         Box(
                             modifier = Modifier
                                 .size(10.dp)
@@ -71,43 +68,27 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Status subtitle
-            Text(
-                text = when {
-                    !isServiceRunning -> "Service stopped — go to Settings to start"
-                    isConnected -> "Connected to Claw"
-                    else -> "Reconnecting..."
-                },
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
-
-            // Cat section header
+            // Cat bar — single horizontal row of equal-width squares
             if (cats.isNotEmpty()) {
-                Text(
-                    text = "Cat Watch",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 18.sp
-                )
-
-                // Sort: regular cats first (alphabetical), outdoorOnly (Cay) last
                 val sorted = cats.values
                     .sortedWith(compareBy({ it.outdoorOnly }, { it.name }))
 
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    items(sorted, key = { it.name }) { cat ->
-                        CatCard(cat = cat, onClick = { onCatClick(cat) })
+                    sorted.forEach { cat ->
+                        CatTile(
+                            cat = cat,
+                            onClick = { onCatClick(cat) },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             } else {
-                // Waiting for state snapshot
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -118,8 +99,12 @@ fun HomeScreen(
                         CircularProgressIndicator()
                     } else {
                         Text(
-                            "Waiting for connection...",
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                            text = when {
+                                !isServiceRunning -> "Go to Settings to start"
+                                else -> "Waiting for connection..."
+                            },
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
@@ -129,69 +114,47 @@ fun HomeScreen(
 }
 
 @Composable
-fun CatCard(cat: CatState, onClick: () -> Unit) {
-    val (bgColor, locationLabel, locationEmoji) = when (cat.state) {
-        CatLocation.INSIDE -> Triple(
-            MaterialTheme.colorScheme.primaryContainer,
-            "Inside",
-            "🏠"
-        )
-        CatLocation.OUTSIDE -> Triple(
-            Color(0xFFE8F5E9),
-            "Outside",
-            "🌿"
-        )
-        CatLocation.UNKNOWN -> Triple(
-            MaterialTheme.colorScheme.surfaceVariant,
-            "Unknown",
-            "❓"
-        )
+fun CatTile(
+    cat: CatState,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val bgColor = when (cat.state) {
+        CatLocation.INSIDE -> MaterialTheme.colorScheme.primaryContainer
+        CatLocation.OUTSIDE -> Color(0xFFE8F5E9)
+        CatLocation.UNKNOWN -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val emoji = when (cat.state) {
+        CatLocation.INSIDE -> "🏠"
+        CatLocation.OUTSIDE -> "🌿"
+        CatLocation.UNKNOWN -> "❓"
     }
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
+            .aspectRatio(1f)
             .clickable(enabled = !cat.outdoorOnly, onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = bgColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
-                .padding(14.dp)
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+                .fillMaxSize()
+                .padding(4.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Location emoji large
-            Text(text = locationEmoji, fontSize = 28.sp)
-
-            // Cat name
+            Text(text = emoji, fontSize = 20.sp, textAlign = TextAlign.Center)
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = cat.name,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
             )
-
-            // Location label
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = locationLabel,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-                if (cat.outdoorOnly) {
-                    Text(
-                        text = "• always out",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                    )
-                }
-            }
         }
     }
 }

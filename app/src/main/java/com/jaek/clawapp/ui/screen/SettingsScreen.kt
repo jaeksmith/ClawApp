@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -19,7 +20,8 @@ fun SettingsScreen(
     onUrlChange: (String) -> Unit,
     onStartService: () -> Unit,
     onStopService: () -> Unit,
-    onTestPing: () -> Unit,
+    onLocalTestPing: () -> Unit,
+    onServerTestPing: () -> Unit,
     onBack: () -> Unit
 ) {
     var urlDraft by remember(relayUrl) { mutableStateOf(relayUrl) }
@@ -68,37 +70,32 @@ fun SettingsScreen(
                         singleLine = true
                     )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (!isServiceRunning) {
-                            Button(
-                                onClick = {
-                                    onUrlChange(urlDraft)
-                                    onStartService()
-                                },
-                                modifier = Modifier.weight(1f),
-                                enabled = urlDraft.isNotBlank()
-                            ) {
-                                Text("Start Service")
-                            }
-                        } else {
-                            Button(
-                                onClick = onStopService,
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.error
-                                )
-                            ) {
-                                Text("Stop Service")
-                            }
+                    if (!isServiceRunning) {
+                        Button(
+                            onClick = {
+                                onUrlChange(urlDraft)
+                                onStartService()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = urlDraft.isNotBlank()
+                        ) {
+                            Text("Start Service")
+                        }
+                    } else {
+                        Button(
+                            onClick = onStopService,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Text("Stop Service")
                         }
                     }
                 }
             }
 
-            // Test ping card
+            // Test ping card (only when service running)
             if (isServiceRunning) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -106,14 +103,22 @@ fun SettingsScreen(
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text("Debug", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+
                         OutlinedButton(
-                            onClick = onTestPing,
+                            onClick = onLocalTestPing,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("🔔 Test Phone Ping")
+                            Text("🔔 Test Ping (Local)")
+                        }
+
+                        OutlinedButton(
+                            onClick = onServerTestPing,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("📡 Test Ping (Server → Phone)")
                         }
                     }
                 }
@@ -125,7 +130,7 @@ fun SettingsScreen(
                 "ClawApp v0.1.0",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                modifier = Modifier.align(androidx.compose.ui.Alignment.CenterHorizontally)
+                modifier = Modifier.align(Alignment.CenterHorizontally)
             )
         }
     }

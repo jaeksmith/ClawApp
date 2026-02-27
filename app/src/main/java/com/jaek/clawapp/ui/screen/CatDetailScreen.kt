@@ -1,5 +1,7 @@
 package com.jaek.clawapp.ui.screen
 
+import androidx.compose.animation.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -9,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jaek.clawapp.model.CatLocation
@@ -21,8 +24,7 @@ fun CatDetailScreen(
     onSave: (CatLocation) -> Unit,
     onCancel: () -> Unit
 ) {
-    var selectedLocation by remember { mutableStateOf(cat.state) }
-    val hasChange = selectedLocation != cat.state
+    var pickerVisible by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -47,78 +49,66 @@ fun CatDetailScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Cat emoji header
-            Text(
-                text = when (cat.state) {
-                    CatLocation.INSIDE -> "🏠"
-                    CatLocation.OUTSIDE -> "🌿"
-                    CatLocation.UNKNOWN -> "❓"
-                },
-                fontSize = 56.sp,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Current state label
-            Text(
-                text = "Where is ${cat.name}?",
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 20.sp,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
-
-            // Location options
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
+            // Tappable location icon — toggles picker
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable { pickerVisible = !pickerVisible }
             ) {
-                Column(modifier = Modifier.padding(8.dp)) {
-                    LocationOption(
-                        emoji = "🏠",
-                        label = "Inside",
-                        description = "Cat is indoors",
-                        selected = selectedLocation == CatLocation.INSIDE,
-                        onClick = { selectedLocation = CatLocation.INSIDE }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                    LocationOption(
-                        emoji = "🌿",
-                        label = "Outside",
-                        description = "Cat is outdoors",
-                        selected = selectedLocation == CatLocation.OUTSIDE,
-                        onClick = { selectedLocation = CatLocation.OUTSIDE }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                    LocationOption(
-                        emoji = "❓",
-                        label = "Unknown",
-                        description = "Not sure",
-                        selected = selectedLocation == CatLocation.UNKNOWN,
-                        onClick = { selectedLocation = CatLocation.UNKNOWN }
-                    )
-                }
+                Text(
+                    text = when (cat.state) {
+                        CatLocation.INSIDE -> "🏠"
+                        CatLocation.OUTSIDE -> "🌿"
+                        CatLocation.UNKNOWN -> "❓"
+                    },
+                    fontSize = 72.sp,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = cat.state.displayName,
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Text(
+                    text = if (pickerVisible) "tap to close" else "tap to change",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                )
             }
 
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Save / Cancel
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            // Animated picker
+            AnimatedVisibility(
+                visible = pickerVisible,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
             ) {
-                OutlinedButton(
-                    onClick = onCancel,
-                    modifier = Modifier.weight(1f)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text("Cancel")
-                }
-                Button(
-                    onClick = { onSave(selectedLocation) },
-                    modifier = Modifier.weight(1f),
-                    enabled = hasChange
-                ) {
-                    Text("Save")
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Text(
+                            text = "Where is ${cat.name}?",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                        CatLocation.entries.forEach { loc ->
+                            LocationRow(
+                                emoji = loc.emoji,
+                                label = loc.displayName,
+                                selected = cat.state == loc,
+                                onClick = {
+                                    pickerVisible = false
+                                    if (cat.state != loc) onSave(loc)
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -126,16 +116,16 @@ fun CatDetailScreen(
 }
 
 @Composable
-private fun LocationOption(
+private fun LocationRow(
     emoji: String,
     label: String,
-    description: String,
     selected: Boolean,
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -143,13 +133,6 @@ private fun LocationOption(
         Spacer(modifier = Modifier.width(8.dp))
         Text(emoji, fontSize = 22.sp)
         Spacer(modifier = Modifier.width(10.dp))
-        Column {
-            Text(label, fontWeight = FontWeight.Medium, fontSize = 15.sp)
-            Text(
-                description,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
-            )
-        }
+        Text(label, fontWeight = FontWeight.Medium, fontSize = 15.sp)
     }
 }

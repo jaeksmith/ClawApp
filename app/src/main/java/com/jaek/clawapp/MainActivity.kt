@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -75,7 +76,7 @@ class MainActivity : ComponentActivity() {
 
     private val notificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { /* granted or not, service still works */ }
+    ) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,6 +96,11 @@ class MainActivity : ComponentActivity() {
                 var currentScreen by remember { mutableStateOf(Screen.HOME) }
                 var selectedCat by remember { mutableStateOf<CatState?>(null) }
 
+                // System back button returns to HOME instead of desktop
+                BackHandler(enabled = currentScreen != Screen.HOME) {
+                    currentScreen = Screen.HOME
+                }
+
                 when (currentScreen) {
                     Screen.HOME -> HomeScreen(
                         isConnected = connectionState.value,
@@ -106,15 +112,18 @@ class MainActivity : ComponentActivity() {
                         },
                         onSettingsClick = { currentScreen = Screen.SETTINGS }
                     )
+
                     Screen.SETTINGS -> SettingsScreen(
                         isServiceRunning = serviceRunning.value,
                         relayUrl = relayUrl.value,
                         onUrlChange = { relayUrl.value = it },
                         onStartService = { startClawService() },
                         onStopService = { stopClawService() },
-                        onTestPing = { testPing() },
+                        onLocalTestPing = { localTestPing() },
+                        onServerTestPing = { serverTestPing() },
                         onBack = { currentScreen = Screen.HOME }
                     )
+
                     Screen.CAT_DETAIL -> {
                         val cat = selectedCat
                         if (cat != null) {
@@ -158,14 +167,18 @@ class MainActivity : ComponentActivity() {
         connectionState.value = false
     }
 
-    private fun testPing() {
-        clawService?.let {
-            val intent = Intent(this, ClawService::class.java).apply {
-                action = ClawService.ACTION_PING_PHONE
-                putExtra(ClawService.EXTRA_MESSAGE, "Test ping from ClawApp!")
-            }
-            startService(intent)
+    /** Triggers ping locally via the service (no server round-trip) */
+    private fun localTestPing() {
+        val intent = Intent(this, ClawService::class.java).apply {
+            action = ClawService.ACTION_PING_PHONE
+            putExtra(ClawService.EXTRA_MESSAGE, "Local test ping from ClawApp!")
         }
+        startService(intent)
+    }
+
+    /** Asks server to send a ping command back to this device */
+    private fun serverTestPing() {
+        clawService?.requestServerTestPing()
     }
 
     override fun onStart() {
