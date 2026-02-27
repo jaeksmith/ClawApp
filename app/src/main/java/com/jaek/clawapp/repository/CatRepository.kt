@@ -1,6 +1,7 @@
 package com.jaek.clawapp.repository
 
 import android.util.Log
+import com.jaek.clawapp.AppLogger
 import com.google.gson.Gson
 import com.jaek.clawapp.model.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,7 +47,7 @@ class CatRepository {
 
         if (muteRaw != null) applyMuteRaw(muteRaw)
 
-        Log.i(TAG, "Snapshot applied: cats=${parsedCats.keys}, notifs=${parsedNotifs.size}")
+        AppLogger.i(TAG, "Snapshot applied: cats=${parsedCats.keys}, notifs=${parsedNotifs.size}")
     }
 
     fun applyStateChange(catName: String, newState: String, stateSetAt: Long?) {
@@ -74,14 +75,14 @@ class CatRepository {
             "catName" to catName,
             "state" to CatLocation.toServerString(location)
         ))
-        sendWsMessage?.invoke(msg) ?: Log.w(TAG, "WS not ready")
+        sendWsMessage?.invoke(msg) ?: AppLogger.w(TAG, "WS not ready")
         // Optimistic local update
         applyStateChange(catName, CatLocation.toServerString(location), System.currentTimeMillis())
     }
 
     fun setMute(until: Long?) {
         val msg = gson.toJson(mapOf("type" to "set_mute", "until" to until))
-        sendWsMessage?.invoke(msg) ?: Log.w(TAG, "WS not ready")
+        sendWsMessage?.invoke(msg) ?: AppLogger.w(TAG, "WS not ready")
         // Optimistic local update
         _mute.value = MuteState(until = until)
     }
@@ -94,7 +95,7 @@ class CatRepository {
 
     fun updateNotification(notif: CatNotification) {
         val msg = gson.toJson(mapOf("type" to "update_notification", "id" to notif.id, "patch" to notif))
-        sendWsMessage?.invoke(msg) ?: Log.w(TAG, "WS not ready")
+        sendWsMessage?.invoke(msg) ?: AppLogger.w(TAG, "WS not ready")
     }
 
     fun removeNotification(id: String) {

@@ -23,6 +23,7 @@ fun SettingsScreen(
     onLocalTestPing: () -> Unit,
     onServerTestPing: () -> Unit,
     onNotificationsClick: () -> Unit,
+    onLogClick: () -> Unit,
     onBack: () -> Unit
 ) {
     var urlDraft by remember(relayUrl) { mutableStateOf(relayUrl) }
@@ -102,6 +103,16 @@ fun SettingsScreen(
                     Text("Cat Watch", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                     OutlinedButton(onClick = onNotificationsClick, modifier = Modifier.fillMaxWidth()) {
                         Text("🔔 Manage Notifications")
+                    }
+                }
+            }
+
+            // Debug / Log card
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Diagnostics", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    OutlinedButton(onClick = onLogClick, modifier = Modifier.fillMaxWidth()) {
+                        Text("📋 View App Log")
                     }
                 }
             }

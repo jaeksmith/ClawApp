@@ -1,6 +1,7 @@
 package com.jaek.clawapp.service
 
 import android.util.Log
+import com.jaek.clawapp.AppLogger
 import com.google.gson.Gson
 import okhttp3.*
 import java.util.concurrent.TimeUnit
@@ -56,7 +57,7 @@ class RelayConnection(
             ws?.send(message)
             true
         } else {
-            Log.w(TAG, "send() called but not connected")
+            AppLogger.w(TAG, "send() called but not connected")
             false
         }
     }
@@ -70,11 +71,11 @@ class RelayConnection(
     }
 
     private fun doConnect() {
-        Log.i(TAG, "Connecting to $url")
+        AppLogger.i(TAG, "Connecting to $url")
         val request = Request.Builder().url(url).build()
         ws = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.i(TAG, "WebSocket connected")
+                AppLogger.i(TAG, "WebSocket connected")
                 reconnectDelay = RECONNECT_DELAY_MS
                 updateConnected(true)
 
@@ -94,7 +95,7 @@ class RelayConnection(
                             val action = msg["action"] as? String ?: return
                             val message = msg["message"] as? String ?: ""
                             val commandId = msg["commandId"] as? String
-                            Log.i(TAG, "Command received: action=$action commandId=$commandId")
+                            AppLogger.i(TAG, "Command received: action=$action commandId=$commandId")
 
                             handler.post {
                                 listener?.onCommand(action, message, msg)
@@ -112,7 +113,7 @@ class RelayConnection(
                             webSocket.send(gson.toJson(mapOf("type" to "pong")))
                         }
                         "welcome" -> {
-                            Log.i(TAG, "Registered as ${msg["clientId"]}")
+                            AppLogger.i(TAG, "Registered as ${msg["clientId"]}")
                         }
                         "cat_state_snapshot" -> {
                             @Suppress("UNCHECKED_CAST")
@@ -139,23 +140,23 @@ class RelayConnection(
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error handling message", e)
+                    AppLogger.e(TAG, "Error handling message", e)
                 }
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                Log.i(TAG, "WebSocket closing: $code $reason")
+                AppLogger.i(TAG, "WebSocket closing: $code $reason")
                 webSocket.close(1000, null)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                Log.i(TAG, "WebSocket closed: $code $reason")
+                AppLogger.i(TAG, "WebSocket closed: $code $reason")
                 updateConnected(false)
                 scheduleReconnect()
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.e(TAG, "WebSocket failure: ${t.message}")
+                AppLogger.e(TAG, "WebSocket failure: ${t.message}")
                 updateConnected(false)
                 scheduleReconnect()
             }
@@ -164,7 +165,7 @@ class RelayConnection(
 
     private fun scheduleReconnect() {
         if (!shouldReconnect) return
-        Log.i(TAG, "Reconnecting in ${reconnectDelay}ms")
+        AppLogger.i(TAG, "Reconnecting in ${reconnectDelay}ms")
         handler.postDelayed({ doConnect() }, reconnectDelay)
         reconnectDelay = (reconnectDelay * 2).coerceAtMost(MAX_RECONNECT_DELAY_MS)
     }

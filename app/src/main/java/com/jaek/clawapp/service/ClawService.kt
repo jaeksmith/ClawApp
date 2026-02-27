@@ -9,6 +9,7 @@ import android.media.RingtoneManager
 import android.os.*
 import android.speech.tts.TextToSpeech
 import android.util.Log
+import com.jaek.clawapp.AppLogger
 import androidx.core.app.NotificationCompat
 import com.jaek.clawapp.MainActivity
 import com.jaek.clawapp.model.CatLocation
@@ -94,7 +95,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     // --- RelayConnection.CommandListener ---
 
     override fun onCommand(action: String, message: String, extra: Map<String, Any?>) {
-        Log.i(TAG, "Command received: action=$action message=$message")
+        AppLogger.i(TAG, "Command received: action=$action message=$message")
         when (action) {
             "cat_notification" -> {
                 @Suppress("UNCHECKED_CAST")
@@ -120,7 +121,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
                 val title = extra["title"] as? String ?: "Claw"
                 showNotification(title, message)
             }
-            else -> Log.w(TAG, "Unknown command action: $action")
+            else -> AppLogger.w(TAG, "Unknown command action: $action")
         }
     }
 
@@ -130,7 +131,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     }
 
     override fun onCatStateSnapshot(cats: Map<String, Any?>, notifications: List<Any?>, lastCatOutAt: Long?, mute: Map<String, Any?>?) {
-        Log.i(TAG, "Cat snapshot received: ${cats.keys}")
+        AppLogger.i(TAG, "Cat snapshot received: ${cats.keys}")
         catRepository.applySnapshot(cats, notifications, mute)
     }
 
@@ -139,7 +140,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     }
 
     override fun onCatStateChanged(catName: String, state: String, stateSetAt: Long?, source: String) {
-        Log.i(TAG, "Cat state push: $catName -> $state (from $source)")
+        AppLogger.i(TAG, "Cat state push: $catName -> $state (from $source)")
         catRepository.applyStateChange(catName, state, stateSetAt)
     }
 
@@ -158,7 +159,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
      * Handles the cat_notification command with combo delivery options.
      */
     private fun deliverCatNotification(message: String, delivery: Map<String, Any?>?) {
-        Log.i(TAG, "Cat notification: $message delivery=$delivery")
+        AppLogger.i(TAG, "Cat notification: $message delivery=$delivery")
 
         val vibration = delivery?.get("vibration") as? Boolean ?: false
         val meow = delivery?.get("meow") as? Boolean ?: false
@@ -188,7 +189,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
                     prepare(); start()
                     setOnCompletionListener { release() }
                 }
-            } catch (e: Exception) { Log.e(TAG, "Error playing notification sound", e) }
+            } catch (e: Exception) { AppLogger.e(TAG, "Error playing notification sound", e) }
         }
 
         if (doTts && ttsReady) {
@@ -207,7 +208,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     private fun playRawSound(resId: Int, bypassSilent: Boolean) {
         try {
             val mp = MediaPlayer.create(this, resId) ?: run {
-                Log.w(TAG, "Sound resource $resId not found"); return
+                AppLogger.w(TAG, "Sound resource $resId not found"); return
             }
             mp.setAudioAttributes(AudioAttributes.Builder()
                 .setUsage(if (bypassSilent) AudioAttributes.USAGE_ALARM else AudioAttributes.USAGE_NOTIFICATION)
@@ -215,14 +216,14 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
                 .build())
             mp.start()
             mp.setOnCompletionListener { it.release() }
-        } catch (e: Exception) { Log.e(TAG, "Error playing raw sound", e) }
+        } catch (e: Exception) { AppLogger.e(TAG, "Error playing raw sound", e) }
     }
 
     /**
      * Trigger phone ping — plays alarm sound, vibrates, and speaks a message.
      */
     private fun pingPhone(message: String) {
-        Log.i(TAG, "PING PHONE: $message")
+        AppLogger.i(TAG, "PING PHONE: $message")
 
         // Vibrate
         val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
@@ -251,7 +252,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
             // Stop after 5 seconds
             handler.postDelayed({ stopAlarm() }, 5000)
         } catch (e: Exception) {
-            Log.e(TAG, "Error playing alarm", e)
+            AppLogger.e(TAG, "Error playing alarm", e)
         }
 
         // Speak the message after a brief delay
@@ -290,7 +291,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
         if (status == TextToSpeech.SUCCESS) {
             tts?.language = Locale.US
             ttsReady = true
-            Log.i(TAG, "TTS initialized")
+            AppLogger.i(TAG, "TTS initialized")
         }
     }
 

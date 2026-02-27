@@ -18,6 +18,7 @@ import com.jaek.clawapp.model.CatNotification
 import com.jaek.clawapp.model.CatState
 import com.jaek.clawapp.model.MuteState
 import com.jaek.clawapp.service.ClawService
+import com.jaek.clawapp.AppLogger
 import com.jaek.clawapp.ui.screen.*
 import com.jaek.clawapp.ui.theme.ClawAppTheme
 import kotlinx.coroutines.Job
@@ -26,7 +27,7 @@ import kotlinx.coroutines.launch
 private enum class Screen {
     HOME, SETTINGS, CAT_DETAIL,
     NOTIFICATIONS, NOTIFICATION_EDIT,
-    QUICK_CONTROLS
+    QUICK_CONTROLS, LOG
 }
 
 class MainActivity : ComponentActivity() {
@@ -132,6 +133,7 @@ class MainActivity : ComponentActivity() {
                         onLocalTestPing = { localTestPing() },
                         onServerTestPing = { serverTestPing() },
                         onNotificationsClick = { currentScreen = Screen.NOTIFICATIONS },
+                        onLogClick = { currentScreen = Screen.LOG },
                         onBack = { currentScreen = Screen.HOME }
                     )
 
@@ -173,6 +175,8 @@ class MainActivity : ComponentActivity() {
                         },
                         onCancel = { currentScreen = Screen.NOTIFICATIONS }
                     )
+
+                    Screen.LOG -> LogScreen(onBack = { currentScreen = Screen.SETTINGS })
 
                     Screen.QUICK_CONTROLS -> QuickControlsScreen(
                         muteState = muteState.value,
