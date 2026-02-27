@@ -101,12 +101,13 @@ private fun NotificationCard(
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
-                // Delivery summary
+                // Delivery summary (guard against Gson null-injection on non-nullable fields)
+                val delivery = notif.delivery
                 val deliveryIcons = buildList {
-                    if (notif.delivery.vibration) add("📳")
-                    if (notif.delivery.meow) add("😸")
-                    if (notif.delivery.phoneSound) add("🔔")
-                    if (notif.delivery.tts) add("🗣️")
+                    if (delivery?.vibration == true) add("📳")
+                    if (delivery?.meow == true) add("😸")
+                    if (delivery?.phoneSound == true) add("🔔")
+                    if (delivery?.tts == true) add("🗣️")
                 }
                 if (deliveryIcons.isNotEmpty()) {
                     Text(

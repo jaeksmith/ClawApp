@@ -166,7 +166,9 @@ class MainActivity : ComponentActivity() {
                     Screen.NOTIFICATION_EDIT -> NotificationEditScreen(
                         existing = if (isNewNotif) null else editingNotif,
                         onSave = { notif ->
-                            clawService?.catRepository?.addNotification(notif)
+                            val repo = clawService?.catRepository
+                            if (isNewNotif) repo?.addNotification(notif)
+                            else repo?.updateNotification(notif)
                             currentScreen = Screen.NOTIFICATIONS
                         },
                         onCancel = { currentScreen = Screen.NOTIFICATIONS }

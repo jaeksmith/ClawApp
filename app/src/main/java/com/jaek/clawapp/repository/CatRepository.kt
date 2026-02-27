@@ -92,6 +92,11 @@ class CatRepository {
         sendWsMessage?.invoke(msg)
     }
 
+    fun updateNotification(notif: CatNotification) {
+        val msg = gson.toJson(mapOf("type" to "update_notification", "id" to notif.id, "patch" to notif))
+        sendWsMessage?.invoke(msg) ?: Log.w(TAG, "WS not ready")
+    }
+
     fun removeNotification(id: String) {
         val msg = gson.toJson(mapOf("type" to "remove_notification", "id" to id))
         sendWsMessage?.invoke(msg)
