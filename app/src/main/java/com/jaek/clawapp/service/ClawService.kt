@@ -96,6 +96,11 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     override fun onCommand(action: String, message: String, extra: Map<String, Any?>) {
         Log.i(TAG, "Command received: action=$action message=$message")
         when (action) {
+            "cat_notification" -> {
+                @Suppress("UNCHECKED_CAST")
+                val delivery = extra["delivery"] as? Map<String, Any?>
+                deliverCatNotification(message, delivery)
+            }
             "ping" -> pingPhone(message.ifEmpty { "Hey! Your assistant is looking for you!" })
             "tts" -> {
                 if (ttsReady && message.isNotEmpty()) {
@@ -124,9 +129,13 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
         updateNotification(if (connected) "Connected to Claw" else "Reconnecting...")
     }
 
-    override fun onCatStateSnapshot(cats: Map<String, Any?>, notifications: List<Any?>, lastCatOutAt: Long?) {
+    override fun onCatStateSnapshot(cats: Map<String, Any?>, notifications: List<Any?>, lastCatOutAt: Long?, mute: Map<String, Any?>?) {
         Log.i(TAG, "Cat snapshot received: ${cats.keys}")
-        catRepository.applySnapshot(cats, notifications)
+        catRepository.applySnapshot(cats, notifications, mute)
+    }
+
+    override fun onMuteState(until: Long?) {
+        catRepository.applyMuteState(until)
     }
 
     override fun onCatStateChanged(catName: String, state: String, stateSetAt: Long?, source: String) {
@@ -143,6 +152,70 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
             "type" to "request_test_ping",
             "message" to "Server test ping — round trip confirmed!"
         )))
+    }
+
+    /**
+     * Handles the cat_notification command with combo delivery options.
+     */
+    private fun deliverCatNotification(message: String, delivery: Map<String, Any?>?) {
+        Log.i(TAG, "Cat notification: $message delivery=$delivery")
+
+        val vibration = delivery?.get("vibration") as? Boolean ?: false
+        val meow = delivery?.get("meow") as? Boolean ?: false
+        val phoneSound = delivery?.get("phoneSound") as? Boolean ?: false
+        val doTts = delivery?.get("tts") as? Boolean ?: false
+        val ttsText = delivery?.get("ttsText") as? String ?: message
+        val bypassSilent = delivery?.get("bypassSilent") as? Boolean ?: true
+
+        if (vibration) {
+            val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 400, 200, 400), -1))
+        }
+
+        if (meow) {
+            playRawSound(com.jaek.clawapp.R.raw.cat_meow, bypassSilent)
+        } else if (phoneSound) {
+            val soundUri = RingtoneManager.getDefaultUri(
+                if (bypassSilent) RingtoneManager.TYPE_ALARM else RingtoneManager.TYPE_NOTIFICATION
+            )
+            try {
+                MediaPlayer().apply {
+                    setAudioAttributes(AudioAttributes.Builder()
+                        .setUsage(if (bypassSilent) AudioAttributes.USAGE_ALARM else AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build())
+                    setDataSource(this@ClawService, soundUri)
+                    prepare(); start()
+                    setOnCompletionListener { release() }
+                }
+            } catch (e: Exception) { Log.e(TAG, "Error playing notification sound", e) }
+        }
+
+        if (doTts && ttsReady) {
+            val resolvedText = ttsText.ifEmpty { message }
+            val streamType = if (bypassSilent) android.media.AudioManager.STREAM_ALARM
+                            else android.media.AudioManager.STREAM_NOTIFICATION
+            handler.postDelayed({
+                val params = Bundle().apply { putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, streamType) }
+                tts?.speak(resolvedText, TextToSpeech.QUEUE_ADD, params, "catnot_${System.currentTimeMillis()}")
+            }, if (meow || phoneSound) 1500L else 0L)
+        }
+
+        showNotification("🐱 Cat Watch", message)
+    }
+
+    private fun playRawSound(resId: Int, bypassSilent: Boolean) {
+        try {
+            val mp = MediaPlayer.create(this, resId) ?: run {
+                Log.w(TAG, "Sound resource $resId not found"); return
+            }
+            mp.setAudioAttributes(AudioAttributes.Builder()
+                .setUsage(if (bypassSilent) AudioAttributes.USAGE_ALARM else AudioAttributes.USAGE_NOTIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build())
+            mp.start()
+            mp.setOnCompletionListener { it.release() }
+        } catch (e: Exception) { Log.e(TAG, "Error playing raw sound", e) }
     }
 
     /**

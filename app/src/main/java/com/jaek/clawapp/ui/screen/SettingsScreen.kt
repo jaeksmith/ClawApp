@@ -22,6 +22,7 @@ fun SettingsScreen(
     onStopService: () -> Unit,
     onLocalTestPing: () -> Unit,
     onServerTestPing: () -> Unit,
+    onNotificationsClick: () -> Unit,
     onBack: () -> Unit
 ) {
     var urlDraft by remember(relayUrl) { mutableStateOf(relayUrl) }
@@ -91,6 +92,16 @@ fun SettingsScreen(
                         ) {
                             Text("Stop Service")
                         }
+                    }
+                }
+            }
+
+            // Notifications card
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Cat Watch", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    OutlinedButton(onClick = onNotificationsClick, modifier = Modifier.fillMaxWidth()) {
+                        Text("🔔 Manage Notifications")
                     }
                 }
             }

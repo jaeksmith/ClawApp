@@ -14,16 +14,20 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.lifecycle.lifecycleScope
 import com.jaek.clawapp.model.CatLocation
+import com.jaek.clawapp.model.CatNotification
 import com.jaek.clawapp.model.CatState
+import com.jaek.clawapp.model.MuteState
 import com.jaek.clawapp.service.ClawService
-import com.jaek.clawapp.ui.screen.CatDetailScreen
-import com.jaek.clawapp.ui.screen.HomeScreen
-import com.jaek.clawapp.ui.screen.SettingsScreen
+import com.jaek.clawapp.ui.screen.*
 import com.jaek.clawapp.ui.theme.ClawAppTheme
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-private enum class Screen { HOME, SETTINGS, CAT_DETAIL }
+private enum class Screen {
+    HOME, SETTINGS, CAT_DETAIL,
+    NOTIFICATIONS, NOTIFICATION_EDIT,
+    QUICK_CONTROLS
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -32,8 +36,12 @@ class MainActivity : ComponentActivity() {
     private val connectionState = mutableStateOf(false)
     private val serviceRunning = mutableStateOf(false)
     private val catsState = mutableStateOf<Map<String, CatState>>(emptyMap())
+    private val notificationsState = mutableStateOf<List<CatNotification>>(emptyList())
+    private val muteState = mutableStateOf(MuteState())
     private var connectionCollectJob: Job? = null
     private var catsCollectJob: Job? = null
+    private var notifsCollectJob: Job? = null
+    private var muteCollectJob: Job? = null
 
     private val relayUrl = mutableStateOf("ws://100.126.78.128:18790")
 
@@ -47,30 +55,32 @@ class MainActivity : ComponentActivity() {
             connectionCollectJob = lifecycleScope.launch {
                 svc.connectionState.collect { connectionState.value = it }
             }
-
             catsCollectJob?.cancel()
             catsCollectJob = lifecycleScope.launch {
                 svc.catRepository.cats.collect { catsState.value = it }
+            }
+            notifsCollectJob?.cancel()
+            notifsCollectJob = lifecycleScope.launch {
+                svc.catRepository.notifications.collect { notificationsState.value = it }
+            }
+            muteCollectJob?.cancel()
+            muteCollectJob = lifecycleScope.launch {
+                svc.catRepository.mute.collect { muteState.value = it }
             }
 
             if (!svc.isConnected()) {
                 val url = relayUrl.value
                 if (url.isNotBlank()) svc.configure(url)
             }
-
             bound = true
             serviceRunning.value = true
         }
 
         override fun onServiceDisconnected(name: android.content.ComponentName?) {
-            connectionCollectJob?.cancel()
-            catsCollectJob?.cancel()
-            connectionCollectJob = null
-            catsCollectJob = null
-            clawService = null
-            bound = false
-            serviceRunning.value = false
-            connectionState.value = false
+            listOf(connectionCollectJob, catsCollectJob, notifsCollectJob, muteCollectJob).forEach { it?.cancel() }
+            connectionCollectJob = null; catsCollectJob = null; notifsCollectJob = null; muteCollectJob = null
+            clawService = null; bound = false
+            serviceRunning.value = false; connectionState.value = false
         }
     }
 
@@ -95,8 +105,9 @@ class MainActivity : ComponentActivity() {
             ClawAppTheme {
                 var currentScreen by remember { mutableStateOf(Screen.HOME) }
                 var selectedCat by remember { mutableStateOf<CatState?>(null) }
+                var editingNotif by remember { mutableStateOf<CatNotification?>(null) }
+                var isNewNotif by remember { mutableStateOf(false) }
 
-                // System back button returns to HOME instead of desktop
                 BackHandler(enabled = currentScreen != Screen.HOME) {
                     currentScreen = Screen.HOME
                 }
@@ -106,11 +117,10 @@ class MainActivity : ComponentActivity() {
                         isConnected = connectionState.value,
                         isServiceRunning = serviceRunning.value,
                         cats = catsState.value,
-                        onCatClick = { cat ->
-                            selectedCat = cat
-                            currentScreen = Screen.CAT_DETAIL
-                        },
-                        onSettingsClick = { currentScreen = Screen.SETTINGS }
+                        muteState = muteState.value,
+                        onCatClick = { cat -> selectedCat = cat; currentScreen = Screen.CAT_DETAIL },
+                        onSettingsClick = { currentScreen = Screen.SETTINGS },
+                        onQuickControlsClick = { currentScreen = Screen.QUICK_CONTROLS }
                     )
 
                     Screen.SETTINGS -> SettingsScreen(
@@ -121,6 +131,7 @@ class MainActivity : ComponentActivity() {
                         onStopService = { stopClawService() },
                         onLocalTestPing = { localTestPing() },
                         onServerTestPing = { serverTestPing() },
+                        onNotificationsClick = { currentScreen = Screen.NOTIFICATIONS },
                         onBack = { currentScreen = Screen.HOME }
                     )
 
@@ -129,16 +140,43 @@ class MainActivity : ComponentActivity() {
                         if (cat != null) {
                             CatDetailScreen(
                                 cat = cat,
-                                onSave = { newLocation ->
-                                    clawService?.catRepository?.setCatState(cat.name, newLocation)
+                                onSave = { newLoc ->
+                                    clawService?.catRepository?.setCatState(cat.name, newLoc)
                                     currentScreen = Screen.HOME
                                 },
                                 onCancel = { currentScreen = Screen.HOME }
                             )
-                        } else {
-                            currentScreen = Screen.HOME
-                        }
+                        } else currentScreen = Screen.HOME
                     }
+
+                    Screen.NOTIFICATIONS -> NotificationsScreen(
+                        notifications = notificationsState.value,
+                        onAdd = {
+                            editingNotif = null; isNewNotif = true
+                            currentScreen = Screen.NOTIFICATION_EDIT
+                        },
+                        onEdit = { notif ->
+                            editingNotif = notif; isNewNotif = false
+                            currentScreen = Screen.NOTIFICATION_EDIT
+                        },
+                        onDelete = { id -> clawService?.catRepository?.removeNotification(id) },
+                        onBack = { currentScreen = Screen.SETTINGS }
+                    )
+
+                    Screen.NOTIFICATION_EDIT -> NotificationEditScreen(
+                        existing = if (isNewNotif) null else editingNotif,
+                        onSave = { notif ->
+                            clawService?.catRepository?.addNotification(notif)
+                            currentScreen = Screen.NOTIFICATIONS
+                        },
+                        onCancel = { currentScreen = Screen.NOTIFICATIONS }
+                    )
+
+                    Screen.QUICK_CONTROLS -> QuickControlsScreen(
+                        muteState = muteState.value,
+                        onSetMute = { until -> clawService?.catRepository?.setMute(until) },
+                        onBack = { currentScreen = Screen.HOME }
+                    )
                 }
             }
         }
@@ -158,42 +196,27 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun stopClawService() {
-        if (bound) {
-            unbindService(serviceConnection)
-            bound = false
-        }
+        if (bound) { unbindService(serviceConnection); bound = false }
         stopService(Intent(this, ClawService::class.java))
-        serviceRunning.value = false
-        connectionState.value = false
+        serviceRunning.value = false; connectionState.value = false
     }
 
-    /** Triggers ping locally via the service (no server round-trip) */
     private fun localTestPing() {
-        val intent = Intent(this, ClawService::class.java).apply {
+        startService(Intent(this, ClawService::class.java).apply {
             action = ClawService.ACTION_PING_PHONE
             putExtra(ClawService.EXTRA_MESSAGE, "Local test ping from ClawApp!")
-        }
-        startService(intent)
+        })
     }
 
-    /** Asks server to send a ping command back to this device */
-    private fun serverTestPing() {
-        clawService?.requestServerTestPing()
-    }
+    private fun serverTestPing() { clawService?.requestServerTestPing() }
 
     override fun onStart() {
         super.onStart()
-        if (!bound) {
-            val intent = Intent(this, ClawService::class.java)
-            bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
-        }
+        if (!bound) bindService(Intent(this, ClawService::class.java), serviceConnection, Context.BIND_AUTO_CREATE)
     }
 
     override fun onDestroy() {
-        if (bound) {
-            unbindService(serviceConnection)
-            bound = false
-        }
+        if (bound) { unbindService(serviceConnection); bound = false }
         super.onDestroy()
     }
 }

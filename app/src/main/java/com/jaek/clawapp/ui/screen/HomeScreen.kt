@@ -20,6 +20,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jaek.clawapp.model.CatLocation
 import com.jaek.clawapp.model.CatState
+import com.jaek.clawapp.model.MuteState
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,8 +31,10 @@ fun HomeScreen(
     isConnected: Boolean,
     isServiceRunning: Boolean,
     cats: Map<String, CatState>,
+    muteState: MuteState = MuteState(),
     onCatClick: (CatState) -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onQuickControlsClick: () -> Unit = {}
 ) {
     Scaffold(
         topBar = {
@@ -54,6 +60,9 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onQuickControlsClick) {
+                        Text(if (muteState.isMuted) "🔕" else "🔔", fontSize = 18.sp)
+                    }
                     IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
@@ -69,6 +78,24 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            // Mute banner (shown when muted)
+            if (muteState.isMuted && muteState.until != null) {
+                val fmt = SimpleDateFormat("h:mm a", Locale.US)
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onQuickControlsClick() },
+                    color = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Text(
+                        text = "🔕 Notifications muted until ${fmt.format(Date(muteState.until))}  ·  tap to change",
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+
             // Cat bar — single horizontal row of equal-width squares
             if (cats.isNotEmpty()) {
                 val sorted = cats.values

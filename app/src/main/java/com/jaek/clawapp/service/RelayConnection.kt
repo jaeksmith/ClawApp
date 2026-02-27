@@ -23,8 +23,9 @@ class RelayConnection(
     interface CommandListener {
         fun onCommand(action: String, message: String, extra: Map<String, Any?>)
         fun onConnectionChanged(connected: Boolean)
-        fun onCatStateSnapshot(cats: Map<String, Any?>, notifications: List<Any?>, lastCatOutAt: Long?)
+        fun onCatStateSnapshot(cats: Map<String, Any?>, notifications: List<Any?>, lastCatOutAt: Long?, mute: Map<String, Any?>?)
         fun onCatStateChanged(catName: String, state: String, stateSetAt: Long?, source: String)
+        fun onMuteState(until: Long?)
     }
 
     private val client = OkHttpClient.Builder()
@@ -119,7 +120,9 @@ class RelayConnection(
                             @Suppress("UNCHECKED_CAST")
                             val notifs = msg["notifications"] as? List<Any?> ?: emptyList()
                             val lastOut = (msg["lastCatOutAt"] as? Double)?.toLong()
-                            handler.post { listener?.onCatStateSnapshot(catsMap, notifs, lastOut) }
+                            @Suppress("UNCHECKED_CAST")
+                            val muteRaw = msg["mute"] as? Map<String, Any?>
+                            handler.post { listener?.onCatStateSnapshot(catsMap, notifs, lastOut, muteRaw) }
                         }
                         "cat_state_changed" -> {
                             val catName = msg["catName"] as? String ?: return
@@ -127,6 +130,12 @@ class RelayConnection(
                             val stateSetAt = (msg["stateSetAt"] as? Double)?.toLong()
                             val source = msg["source"] as? String ?: "server"
                             handler.post { listener?.onCatStateChanged(catName, state, stateSetAt, source) }
+                        }
+                        "mute_state", "mute_ack" -> {
+                            @Suppress("UNCHECKED_CAST")
+                            val muteRaw = msg["mute"] as? Map<String, Any?>
+                            val until = (muteRaw?.get("until") as? Double)?.toLong()
+                            handler.post { listener?.onMuteState(until) }
                         }
                     }
                 } catch (e: Exception) {
