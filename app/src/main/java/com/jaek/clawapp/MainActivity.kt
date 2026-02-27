@@ -17,6 +17,7 @@ import com.jaek.clawapp.model.CatLocation
 import com.jaek.clawapp.model.CatNotification
 import com.jaek.clawapp.model.CatState
 import com.jaek.clawapp.model.MuteState
+import com.jaek.clawapp.service.LocationPoint
 import com.jaek.clawapp.service.ClawService
 import com.jaek.clawapp.AppLogger
 import com.jaek.clawapp.ui.screen.*
@@ -39,7 +40,9 @@ class MainActivity : ComponentActivity() {
     private val catsState = mutableStateOf<Map<String, CatState>>(emptyMap())
     private val notificationsState = mutableStateOf<List<CatNotification>>(emptyList())
     private val muteState = mutableStateOf(MuteState())
+    private val locationState = mutableStateOf<LocationPoint?>(null)
     private var connectionCollectJob: Job? = null
+    private var locationCollectJob: Job? = null
     private var catsCollectJob: Job? = null
     private var notifsCollectJob: Job? = null
     private var muteCollectJob: Job? = null
@@ -68,6 +71,10 @@ class MainActivity : ComponentActivity() {
             muteCollectJob = lifecycleScope.launch {
                 svc.catRepository.mute.collect { muteState.value = it }
             }
+            locationCollectJob?.cancel()
+            locationCollectJob = lifecycleScope.launch {
+                svc.locationTracker.currentLocation.collect { locationState.value = it }
+            }
 
             if (!svc.isConnected()) {
                 val url = relayUrl.value
@@ -78,8 +85,8 @@ class MainActivity : ComponentActivity() {
         }
 
         override fun onServiceDisconnected(name: android.content.ComponentName?) {
-            listOf(connectionCollectJob, catsCollectJob, notifsCollectJob, muteCollectJob).forEach { it?.cancel() }
-            connectionCollectJob = null; catsCollectJob = null; notifsCollectJob = null; muteCollectJob = null
+            listOf(connectionCollectJob, catsCollectJob, notifsCollectJob, muteCollectJob, locationCollectJob).forEach { it?.cancel() }
+            connectionCollectJob = null; catsCollectJob = null; notifsCollectJob = null; muteCollectJob = null; locationCollectJob = null
             clawService = null; bound = false
             serviceRunning.value = false; connectionState.value = false
         }
@@ -100,6 +107,14 @@ class MainActivity : ComponentActivity() {
             if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
+        }
+        // Location permission
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.ACTIVITY_RECOGNITION
+            ), 42)
         }
 
         setContent {
@@ -125,6 +140,7 @@ class MainActivity : ComponentActivity() {
                         isServiceRunning = serviceRunning.value,
                         cats = catsState.value,
                         muteState = muteState.value,
+                        currentLocation = locationState.value,
                         onCatClick = { cat -> selectedCat = cat; currentScreen = Screen.CAT_DETAIL },
                         onSettingsClick = { currentScreen = Screen.SETTINGS },
                         onQuickControlsClick = { currentScreen = Screen.QUICK_CONTROLS }

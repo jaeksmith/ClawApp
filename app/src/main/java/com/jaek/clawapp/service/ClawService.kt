@@ -42,6 +42,9 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     // Cat state repository — shared with UI via binder
     val catRepository = CatRepository()
 
+    // Location tracker — shared with UI via binder
+    val locationTracker by lazy { LocationTracker(this) }
+
     // Observable connection state — always emits current value on collection (no race)
     private val _connectionState = MutableStateFlow(false)
     val connectionState: StateFlow<Boolean> = _connectionState.asStateFlow()
@@ -90,6 +93,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
             it.connect()
         }
         catRepository.sendWsMessage = { msg -> relay?.send(msg) }
+        locationTracker.sendWsMessage = { msg -> relay?.send(msg) }
     }
 
     // --- RelayConnection.CommandListener ---

@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.jaek.clawapp.model.CatLocation
 import com.jaek.clawapp.model.CatState
 import com.jaek.clawapp.model.MuteState
+import com.jaek.clawapp.service.LocationPoint
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -32,6 +33,7 @@ fun HomeScreen(
     isServiceRunning: Boolean,
     cats: Map<String, CatState>,
     muteState: MuteState = MuteState(),
+    currentLocation: LocationPoint? = null,
     onCatClick: (CatState) -> Unit,
     onSettingsClick: () -> Unit,
     onQuickControlsClick: () -> Unit = {}
@@ -45,6 +47,16 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text("🦀 ClawApp", fontWeight = FontWeight.Bold)
+                        // Location badge
+                        if (currentLocation != null) {
+                            val locLabel = currentLocation.inferredName
+                                ?: "📍 ${currentLocation.accuracy?.let { "±${it.toInt()}m" } ?: ""}"
+                            Text(
+                                text = "📍 $locLabel",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
                         Box(
                             modifier = Modifier
                                 .size(10.dp)
