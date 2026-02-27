@@ -35,6 +35,7 @@ object AppLogger {
     fun i(tag: String, message: String) = log(tag, message, "I")
     fun w(tag: String, message: String) = log(tag, message, "W")
     fun e(tag: String, message: String) = log(tag, message, "E")
+    fun e(tag: String, message: String, t: Throwable) = log(tag, "$message: ${t.message}", "E")
 
     fun clear() {
         _entries.clear()
