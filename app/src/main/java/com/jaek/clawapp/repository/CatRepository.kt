@@ -42,7 +42,7 @@ class CatRepository {
             @Suppress("UNCHECKED_CAST")
             val m = raw as? Map<String, Any?> ?: return@mapNotNull null
             parseNotification(m)
-        }
+        }.distinctBy { it.id }  // guard against server-side duplicates
         _notifications.value = parsedNotifs
 
         if (muteRaw != null) applyMuteRaw(muteRaw)
