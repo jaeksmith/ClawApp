@@ -34,6 +34,7 @@ fun HomeScreen(
     cats: Map<String, CatState>,
     muteState: MuteState = MuteState(),
     currentLocation: LocationPoint? = null,
+    locationTracking: Boolean = false,
     onCatClick: (CatState) -> Unit,
     onSettingsClick: () -> Unit,
     onQuickControlsClick: () -> Unit = {}
@@ -48,13 +49,17 @@ fun HomeScreen(
                     ) {
                         Text("🦀 ClawApp", fontWeight = FontWeight.Bold)
                         // Location badge
-                        if (currentLocation != null) {
-                            val locLabel = currentLocation.inferredName
-                                ?: "📍 ${currentLocation.accuracy?.let { "±${it.toInt()}m" } ?: ""}"
+                        if (locationTracking) {
+                            val locLabel = currentLocation?.inferredName
+                                ?: currentLocation?.accuracy?.let { "±${it.toInt()}m" }
+                                ?: "…"
                             Text(
                                 text = "📍 $locLabel",
                                 fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                color = if (currentLocation != null)
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                else
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
                             )
                         }
                         Box(

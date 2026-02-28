@@ -94,6 +94,16 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
         }
         catRepository.sendWsMessage = { msg -> relay?.send(msg) }
         locationTracker.sendWsMessage = { msg -> relay?.send(msg) }
+
+        // Auto-start location tracking unless user explicitly disabled it
+        val trackingEnabled = prefs.getBoolean("location_tracking_enabled", true)
+        if (trackingEnabled) locationTracker.start()
+    }
+
+    fun setLocationTracking(enabled: Boolean) {
+        getSharedPreferences("claw_settings", Context.MODE_PRIVATE)
+            .edit().putBoolean("location_tracking_enabled", enabled).apply()
+        locationTracker.setTrackingEnabled(enabled)
     }
 
     // --- RelayConnection.CommandListener ---

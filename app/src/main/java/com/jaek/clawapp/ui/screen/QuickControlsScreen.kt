@@ -21,7 +21,9 @@ private val timeFmt = SimpleDateFormat("h:mm a", Locale.US)
 @Composable
 fun QuickControlsScreen(
     muteState: MuteState,
+    locationTracking: Boolean,
     onSetMute: (Long?) -> Unit,   // null = unmute
+    onSetLocationTracking: (Boolean) -> Unit,
     onBack: () -> Unit
 ) {
     // Three mutually exclusive modes
@@ -172,6 +174,31 @@ fun QuickControlsScreen(
                         )
                     }
                 }
+            }
+
+            HorizontalDivider()
+
+            // Location tracking toggle
+            Text("Location Tracking", fontWeight = FontWeight.SemiBold, fontSize = 15.sp,
+                color = MaterialTheme.colorScheme.primary)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = if (locationTracking) "📍 Tracking active" else "📍 Tracking off",
+                        fontWeight = FontWeight.Medium, fontSize = 14.sp
+                    )
+                    Text(
+                        text = if (locationTracking) "GPS + WiFi — sends location to relay"
+                               else "Disabled — no location data sent",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                    )
+                }
+                Switch(checked = locationTracking, onCheckedChange = onSetLocationTracking)
             }
 
             Spacer(modifier = Modifier.weight(1f))

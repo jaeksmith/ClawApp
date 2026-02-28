@@ -41,6 +41,7 @@ class MainActivity : ComponentActivity() {
     private val notificationsState = mutableStateOf<List<CatNotification>>(emptyList())
     private val muteState = mutableStateOf(MuteState())
     private val locationState = mutableStateOf<LocationPoint?>(null)
+    private val locationTracking = mutableStateOf(true)
     private var connectionCollectJob: Job? = null
     private var locationCollectJob: Job? = null
     private var catsCollectJob: Job? = null
@@ -75,6 +76,9 @@ class MainActivity : ComponentActivity() {
             locationCollectJob = lifecycleScope.launch {
                 svc.locationTracker.currentLocation.collect { locationState.value = it }
             }
+            // Read initial tracking pref
+            val prefs = getSharedPreferences("claw_settings", MODE_PRIVATE)
+            locationTracking.value = prefs.getBoolean("location_tracking_enabled", true)
 
             if (!svc.isConnected()) {
                 val url = relayUrl.value
@@ -141,6 +145,7 @@ class MainActivity : ComponentActivity() {
                         cats = catsState.value,
                         muteState = muteState.value,
                         currentLocation = locationState.value,
+                        locationTracking = locationTracking.value,
                         onCatClick = { cat -> selectedCat = cat; currentScreen = Screen.CAT_DETAIL },
                         onSettingsClick = { currentScreen = Screen.SETTINGS },
                         onQuickControlsClick = { currentScreen = Screen.QUICK_CONTROLS }
@@ -202,7 +207,12 @@ class MainActivity : ComponentActivity() {
 
                     Screen.QUICK_CONTROLS -> QuickControlsScreen(
                         muteState = muteState.value,
+                        locationTracking = locationTracking.value,
                         onSetMute = { until -> clawService?.catRepository?.setMute(until) },
+                        onSetLocationTracking = { enabled ->
+                            locationTracking.value = enabled
+                            clawService?.setLocationTracking(enabled)
+                        },
                         onBack = { currentScreen = Screen.HOME }
                     )
                 }
