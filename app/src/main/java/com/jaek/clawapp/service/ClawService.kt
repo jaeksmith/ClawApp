@@ -35,7 +35,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
 
     private var tts: TextToSpeech? = null
     private var ttsReady = false
-    private var mediaPlayer: MediaPlayer? = null
+    private val activePlayers = mutableListOf<MediaPlayer>()
     private val handler = Handler(Looper.getMainLooper())
     private var relay: RelayConnection? = null
 
@@ -89,6 +89,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
             ),
             fcmToken = fcmToken
         ).also {
+            it.setContext(this)
             it.setCommandListener(this)
             it.connect()
         }
@@ -255,11 +256,14 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
             )
         )
 
+        // Stop any currently playing alarm before starting a new one
+        stopAlarm()
+
         // Play alarm sound
         try {
             val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                 ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            mediaPlayer = MediaPlayer().apply {
+            val player = MediaPlayer().apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ALARM)
@@ -270,8 +274,9 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
                 prepare()
                 start()
             }
-            // Stop after 5 seconds
-            handler.postDelayed({ stopAlarm() }, 5000)
+            activePlayers.add(player)
+            // Stop this specific player after 5 seconds
+            handler.postDelayed({ stopPlayer(player) }, 5000)
         } catch (e: Exception) {
             AppLogger.e(TAG, "Error playing alarm", e)
         }
@@ -300,12 +305,26 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
         nm.notify(NOTIFICATION_ID + 1, notification)
     }
 
-    private fun stopAlarm() {
-        mediaPlayer?.apply {
-            if (isPlaying) stop()
-            release()
+    private fun stopPlayer(player: MediaPlayer) {
+        try {
+            if (player.isPlaying) player.stop()
+            player.release()
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "Error stopping player: ${e.message}")
         }
-        mediaPlayer = null
+        activePlayers.remove(player)
+    }
+
+    private fun stopAlarm() {
+        // Stop all active alarm players (leaves TTS/other handler callbacks intact)
+        val snapshot = activePlayers.toList()
+        activePlayers.clear()
+        snapshot.forEach { player ->
+            try {
+                if (player.isPlaying) player.stop()
+                player.release()
+            } catch (_: Exception) {}
+        }
     }
 
     override fun onInit(status: Int) {

@@ -43,6 +43,13 @@ class RelayConnection(
     private var isConnected = false
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
 
+    // Context reference for Tailscale nudge notification (set via setContext)
+    private var context: android.content.Context? = null
+    private var consecutiveFailures = 0
+    private val TAILSCALE_NUDGE_AFTER = 3  // show nudge after this many consecutive failures
+
+    fun setContext(ctx: android.content.Context) { context = ctx }
+
     fun setCommandListener(l: CommandListener) {
         listener = l
     }
@@ -77,6 +84,7 @@ class RelayConnection(
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 AppLogger.i(TAG, "WebSocket connected")
                 reconnectDelay = RECONNECT_DELAY_MS
+                consecutiveFailures = 0
                 updateConnected(true)
 
                 // Register with device info
@@ -158,6 +166,10 @@ class RelayConnection(
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 AppLogger.e(TAG, "WebSocket failure: ${t.message}")
                 updateConnected(false)
+                consecutiveFailures++
+                if (consecutiveFailures == TAILSCALE_NUDGE_AFTER) {
+                    showTailscaleNudge()
+                }
                 scheduleReconnect()
             }
         })
@@ -178,4 +190,46 @@ class RelayConnection(
     }
 
     fun isConnected(): Boolean = isConnected
+
+    /**
+     * Shows a notification suggesting the user check Tailscale when the relay
+     * has been unreachable for several consecutive attempts.
+     * Includes an "Open Tailscale" action button and a "Dismiss" action.
+     */
+    private fun showTailscaleNudge() {
+        val ctx = context ?: return
+        AppLogger.w(TAG, "Relay unreachable after $consecutiveFailures attempts — suggesting Tailscale check")
+
+        val nm = ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        val channelId = "claw_tailscale_nudge"
+        val channel = android.app.NotificationChannel(
+            channelId, "Network Alerts", android.app.NotificationManager.IMPORTANCE_DEFAULT
+        ).apply { description = "Alerts when relay is unreachable" }
+        nm.createNotificationChannel(channel)
+
+        // Open Tailscale intent
+        val tailscaleIntent = ctx.packageManager.getLaunchIntentForPackage("com.tailscale.ipn")
+        val tailscalePi = if (tailscaleIntent != null) {
+            android.app.PendingIntent.getActivity(
+                ctx, 0,
+                tailscaleIntent.apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) },
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+        } else null
+
+        val builder = androidx.core.app.NotificationCompat.Builder(ctx, channelId)
+            .setContentTitle("ClawApp: Relay unreachable")
+            .setContentText("Can't reach the relay. Is Tailscale connected?")
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setAutoCancel(true)
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_DEFAULT)
+
+        if (tailscalePi != null) {
+            builder.addAction(0, "Open Tailscale", tailscalePi)
+        } else {
+            builder.setContentText("Can't reach the relay. Tailscale may not be installed or connected.")
+        }
+
+        nm.notify(201, builder.build())
+    }
 }
