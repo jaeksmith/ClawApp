@@ -19,6 +19,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jaek.clawapp.model.CatLocation
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import com.jaek.clawapp.model.CatImages
 import com.jaek.clawapp.model.CatState
 import com.jaek.clawapp.model.MuteState
 import com.jaek.clawapp.service.LocationPoint
@@ -48,7 +52,20 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text("🦀 ClawApp", fontWeight = FontWeight.Bold)
-                        // Location badge
+                        // Connection dot
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    when {
+                                        !isServiceRunning -> Color.Gray
+                                        isConnected -> Color(0xFF4CAF50)
+                                        else -> Color(0xFFF44336)
+                                    }
+                                )
+                        )
+                        // Location badge — after the dot
                         if (locationTracking) {
                             val locLabel = currentLocation?.inferredName
                                 ?: currentLocation?.accuracy?.let { "±${it.toInt()}m" }
@@ -62,18 +79,6 @@ fun HomeScreen(
                                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
                             )
                         }
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    when {
-                                        !isServiceRunning -> Color.Gray
-                                        isConnected -> Color(0xFF4CAF50)
-                                        else -> Color(0xFFF44336)
-                                    }
-                                )
-                        )
                     }
                 },
                 actions = {
@@ -174,6 +179,8 @@ fun CatTile(
         CatLocation.UNKNOWN -> "❓"
     }
 
+    val imageRes = CatImages.getDrawableRes(cat.name)
+
     Card(
         modifier = modifier
             .aspectRatio(1f)
@@ -182,23 +189,37 @@ fun CatTile(
         colors = CardDefaults.cardColors(containerColor = bgColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(4.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(text = emoji, fontSize = 20.sp, textAlign = TextAlign.Center)
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = cat.name,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center
-            )
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Cat photo (fills tile, slightly dimmed by state overlay)
+            if (imageRes != null) {
+                Image(
+                    painter = painterResource(id = imageRes),
+                    contentDescription = cat.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    alpha = if (cat.state == CatLocation.INSIDE) 0.75f else 1f
+                )
+            }
+            // State emoji overlay (bottom-left) + name (bottom)
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .padding(2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(text = emoji, fontSize = if (imageRes != null) 12.sp else 20.sp, textAlign = TextAlign.Center)
+                Text(
+                    text = cat.name,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.jaek.clawapp.ui.screen
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,10 +11,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jaek.clawapp.model.CatImages
 import com.jaek.clawapp.model.CatLocation
 import com.jaek.clawapp.model.CatState
 
@@ -25,6 +30,7 @@ fun CatDetailScreen(
     onCancel: () -> Unit
 ) {
     var pickerVisible by remember { mutableStateOf(false) }
+    val imageRes = CatImages.getDrawableRes(cat.name)
 
     Scaffold(
         topBar = {
@@ -59,15 +65,37 @@ fun CatDetailScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.clickable { pickerVisible = !pickerVisible }
             ) {
-                Text(
-                    text = when (cat.state) {
-                        CatLocation.INSIDE -> "🏠"
-                        CatLocation.OUTSIDE -> "🌿"
-                        CatLocation.UNKNOWN -> "❓"
-                    },
-                    fontSize = 72.sp,
-                    textAlign = TextAlign.Center
-                )
+                // Cat photo if available, otherwise emoji
+                if (imageRes != null) {
+                    Image(
+                        painter = painterResource(id = imageRes),
+                        contentDescription = cat.name,
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(RoundedCornerShape(16.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = when (cat.state) {
+                            CatLocation.INSIDE -> "🏠"
+                            CatLocation.OUTSIDE -> "🌿"
+                            CatLocation.UNKNOWN -> "❓"
+                        },
+                        fontSize = 36.sp,
+                        textAlign = TextAlign.Center
+                    )
+                } else {
+                    Text(
+                        text = when (cat.state) {
+                            CatLocation.INSIDE -> "🏠"
+                            CatLocation.OUTSIDE -> "🌿"
+                            CatLocation.UNKNOWN -> "❓"
+                        },
+                        fontSize = 72.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
                 Text(
                     text = cat.state.displayName,
                     fontSize = 16.sp,

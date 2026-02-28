@@ -1,6 +1,7 @@
 package com.jaek.clawapp.service
 
 import android.app.NotificationChannel
+import android.content.Intent
 import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioAttributes
@@ -39,9 +40,18 @@ class ClawFcmService : FirebaseMessagingService() {
         when (action) {
             "ping" -> handlePing(msg)
             "notify" -> showNotification(data["title"] ?: "Claw", msg)
+            "wake" -> {
+                // FCM doorbell: start the service so it reconnects via WS and gets queued commands
+                Log.i(TAG, "FCM wake received — starting ClawService")
+                try {
+                    startForegroundService(Intent(this, ClawService::class.java))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to start service from FCM wake", e)
+                }
+            }
             else -> {
-                Log.w(TAG, "Unknown FCM action: $action")
-                showNotification("Claw", "Command: $action - $msg")
+                Log.w(TAG, "Unknown FCM action: $action — starting service anyway")
+                try { startForegroundService(Intent(this, ClawService::class.java)) } catch (_: Exception) {}
             }
         }
     }
