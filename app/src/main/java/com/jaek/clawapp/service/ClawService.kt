@@ -135,6 +135,15 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
                 val title = extra["title"] as? String ?: "Claw"
                 showNotification(title, message)
             }
+            "location_update" -> {
+                // Relay echoed back the inferred location (with named place if matched)
+                @Suppress("UNCHECKED_CAST")
+                val current = extra["current"] as? Map<String, Any?>
+                val inferredName = current?.get("inferredName") as? String
+                if (inferredName != null) {
+                    locationTracker.onInferredName(inferredName)
+                }
+            }
             else -> AppLogger.w(TAG, "Unknown command action: $action")
         }
     }

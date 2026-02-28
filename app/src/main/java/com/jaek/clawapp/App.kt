@@ -2,6 +2,7 @@ package com.jaek.clawapp
 
 import android.app.Application
 import android.util.Log
+import com.jaek.clawapp.service.ServiceRestartWorker
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -28,6 +29,9 @@ class App : Application() {
             }
             defaultHandler?.uncaughtException(thread, throwable)
         }
+
+        // Schedule periodic service keepalive check (15 min backstop)
+        ServiceRestartWorker.enqueuePeriodicIfNeeded(this)
 
         // Load any crash files from previous sessions into the log
         loadPreviousCrashes()

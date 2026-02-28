@@ -1,6 +1,7 @@
 package com.jaek.clawapp.service
 
 import android.app.NotificationChannel
+import android.app.PendingIntent
 import android.content.Intent
 import android.app.NotificationManager
 import android.content.Context
@@ -12,6 +13,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.jaek.clawapp.MainActivity
 
 /**
  * Handles FCM messages — used to wake the app and trigger commands
@@ -41,17 +43,15 @@ class ClawFcmService : FirebaseMessagingService() {
             "ping" -> handlePing(msg)
             "notify" -> showNotification(data["title"] ?: "Claw", msg)
             "wake" -> {
-                // FCM doorbell: start the service so it reconnects via WS and gets queued commands
-                Log.i(TAG, "FCM wake received — starting ClawService")
-                try {
-                    startForegroundService(Intent(this, ClawService::class.java))
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to start service from FCM wake", e)
-                }
+                // FCM doorbell: use WorkManager to attempt FGS restart (respects Android 14+ restrictions)
+                // The relay already sends a visible notification — if that's tapped, MainActivity starts
+                // the service directly. WorkManager is the silent best-effort path.
+                Log.i(TAG, "FCM wake received — enqueueing ServiceRestartWorker")
+                ServiceRestartWorker.enqueueOnce(this, "fcm_wake")
             }
             else -> {
-                Log.w(TAG, "Unknown FCM action: $action — starting service anyway")
-                try { startForegroundService(Intent(this, ClawService::class.java)) } catch (_: Exception) {}
+                Log.w(TAG, "Unknown FCM action: $action — attempting WorkManager restart")
+                ServiceRestartWorker.enqueueOnce(this, "fcm_unknown")
             }
         }
     }
@@ -103,6 +103,13 @@ class ClawFcmService : FirebaseMessagingService() {
 
     private fun showNotification(title: String, text: String) {
         ensureNotificationChannel()
+        val tapIntent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(text)
@@ -111,6 +118,7 @@ class ClawFcmService : FirebaseMessagingService() {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setContentIntent(tapIntent)
             .build()
 
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

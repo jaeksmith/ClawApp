@@ -55,5 +55,6 @@ dependencies {
     implementation(libs.firebase.messaging)
     implementation(libs.navigation.compose)
     implementation(libs.lifecycle.viewmodel.compose)
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
     debugImplementation(libs.androidx.ui.tooling)
 }

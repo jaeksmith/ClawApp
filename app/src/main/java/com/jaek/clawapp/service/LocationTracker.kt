@@ -117,6 +117,13 @@ class LocationTracker(private val context: Context) : SensorEventListener {
         AppLogger.i(TAG, "Saved named location '$name' at ${cur.lat},${cur.lng}")
     }
 
+    /** Called when the relay has matched our location to a named place. */
+    fun onInferredName(name: String) {
+        val cur = _currentLocation.value ?: return
+        _currentLocation.value = cur.copy(inferredName = name)
+        AppLogger.i(TAG, "Inferred location name: $name")
+    }
+
     fun setTrackingEnabled(enabled: Boolean) {
         if (enabled) start() else stop()
         // Tell server
