@@ -131,13 +131,15 @@ class LocationTracker(private val context: Context) : SensorEventListener {
     }
 
     private fun onNewLocation(loc: android.location.Location) {
-        // WiFi scan (BSSIDs)
-        val wifiBssids = try {
+        // WiFi scan (BSSIDs + RSSI signal strength in dBm)
+        data class WifiAp(val bssid: String, val rssi: Int)
+        val wifiAps: List<WifiAp> = try {
             if (wifiManager.isWifiEnabled) {
                 @Suppress("DEPRECATION")
-                wifiManager.scanResults.map { it.BSSID }
+                wifiManager.scanResults.map { WifiAp(it.BSSID, it.level) }
             } else emptyList()
         } catch (e: Exception) { emptyList() }
+        val wifiBssids = wifiAps.map { it.bssid }  // keep for backward compat
 
         // Update motion state (walking if step detected recently)
         val motion = when {
@@ -159,7 +161,8 @@ class LocationTracker(private val context: Context) : SensorEventListener {
 
         _currentLocation.value = point
 
-        // Send to relay
+        // Send to relay — include RSSI map for smarter location inference
+        val wifiRssi = wifiAps.associate { it.bssid to it.rssi }.takeIf { it.isNotEmpty() }
         val msg = gson.toJson(mapOf(
             "type" to "location_update",
             "lat" to point.lat,
@@ -167,11 +170,12 @@ class LocationTracker(private val context: Context) : SensorEventListener {
             "accuracy" to point.accuracy,
             "altitude" to point.altitude,
             "wifiScan" to point.wifiScan,
+            "wifiRssi" to wifiRssi,   // { bssid -> dBm } e.g. {"aa:bb:cc:dd:ee:ff": -62}
             "motion" to point.motion,
             "timestamp" to point.timestamp
         ))
         sendWsMessage?.invoke(msg)
-        AppLogger.i(TAG, "Location: ${loc.latitude.toFloat()},${loc.longitude.toFloat()} acc=${loc.accuracy}m wifi=${wifiBssids.size} nets motion=$motion")
+        AppLogger.i(TAG, "Location: ${loc.latitude.toFloat()},${loc.longitude.toFloat()} acc=${loc.accuracy}m wifi=${wifiAps.size} nets motion=$motion")
     }
 
     // SensorEventListener — step detection
