@@ -150,7 +150,9 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
 
     override fun onConnectionChanged(connected: Boolean) {
         _connectionState.value = connected
-        updateNotification(if (connected) "Connected to Claw" else "Reconnecting...")
+        val text = if (connected) "Connected to Claw" else "Reconnecting..."
+        AppLogger.i(TAG, "Connection changed: $connected — updating notification: $text")
+        updateNotification(text)
     }
 
     override fun onCatStateSnapshot(cats: Map<String, Any?>, notifications: List<Any?>, lastCatOutAt: Long?, mute: Map<String, Any?>?) {
@@ -358,6 +360,8 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)   // prevents Samsung suppressing content updates on ongoing notifs
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
 
