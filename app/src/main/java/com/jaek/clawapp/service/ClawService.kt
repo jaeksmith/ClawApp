@@ -62,7 +62,13 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
                 pingPhone(message)
             }
             else -> {
-                startForeground(NOTIFICATION_ID, buildNotification("Connecting..."))
+                // Use current connection state so repeated onStartCommand calls don't reset to "Connecting..."
+                val notifText = when {
+                    relay != null && _connectionState.value -> "Connected to Claw"
+                    relay != null -> "Reconnecting..."
+                    else -> "Connecting..."
+                }
+                startForeground(NOTIFICATION_ID, buildNotification(notifText))
                 // Auto-configure from saved settings (for boot start)
                 if (relay == null) {
                     val prefs = getSharedPreferences("claw_settings", Context.MODE_PRIVATE)
