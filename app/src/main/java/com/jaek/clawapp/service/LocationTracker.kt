@@ -26,6 +26,7 @@ data class LocationPoint(
     val wifiScan: List<String>?,   // BSSIDs of visible networks
     val motion: String?,           // "stationary" | "walking" | "unknown"
     val inferredName: String?,     // filled in by server response
+    val locationConfidence: Int?,  // 0–100, how confident the server is in inferredName
     val timestamp: Long
 )
 
@@ -118,10 +119,10 @@ class LocationTracker(private val context: Context) : SensorEventListener {
     }
 
     /** Called when the relay has matched our location to a named place. */
-    fun onInferredName(name: String) {
+    fun onInferredLocation(name: String?, confidence: Int?) {
         val cur = _currentLocation.value ?: return
-        _currentLocation.value = cur.copy(inferredName = name)
-        AppLogger.i(TAG, "Inferred location name: $name")
+        _currentLocation.value = cur.copy(inferredName = name, locationConfidence = confidence)
+        AppLogger.i(TAG, "Inferred location: name=$name confidence=$confidence%")
     }
 
     fun setTrackingEnabled(enabled: Boolean) {
@@ -156,6 +157,7 @@ class LocationTracker(private val context: Context) : SensorEventListener {
             wifiScan = wifiBssids.takeIf { it.isNotEmpty() },
             motion = motion,
             inferredName = null,
+            locationConfidence = null,
             timestamp = System.currentTimeMillis()
         )
 

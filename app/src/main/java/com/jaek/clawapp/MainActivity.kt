@@ -148,7 +148,10 @@ class MainActivity : ComponentActivity() {
                         locationTracking = locationTracking.value,
                         onCatClick = { cat -> selectedCat = cat; currentScreen = Screen.CAT_DETAIL },
                         onSettingsClick = { currentScreen = Screen.SETTINGS },
-                        onQuickControlsClick = { currentScreen = Screen.QUICK_CONTROLS }
+                        onQuickControlsClick = { currentScreen = Screen.QUICK_CONTROLS },
+                        onConfirmLocation = { name ->
+                            clawService?.locationTracker?.saveCurrentAsNamedLocation(name)
+                        }
                     )
 
                     Screen.SETTINGS -> SettingsScreen(

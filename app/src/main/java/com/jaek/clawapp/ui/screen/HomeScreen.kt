@@ -8,7 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,8 +41,11 @@ fun HomeScreen(
     locationTracking: Boolean = false,
     onCatClick: (CatState) -> Unit,
     onSettingsClick: () -> Unit,
-    onQuickControlsClick: () -> Unit = {}
+    onQuickControlsClick: () -> Unit = {},
+    onConfirmLocation: (confirmedName: String) -> Unit = {}
 ) {
+    var showLocationDialog by remember { mutableStateOf(false) }
+    var locationCorrectionText by remember { mutableStateOf("") }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -65,18 +68,30 @@ fun HomeScreen(
                                     }
                                 )
                         )
-                        // Location badge — after the dot
+                        // Location badge — tappable, shows inferred name + confidence
                         if (locationTracking) {
-                            val locLabel = currentLocation?.inferredName
-                                ?: currentLocation?.accuracy?.let { "±${it.toInt()}m" }
-                                ?: "…"
+                            val inferredName = currentLocation?.inferredName
+                            val confidence = currentLocation?.locationConfidence
+                            val locLabel = when {
+                                inferredName != null && confidence != null -> "📍 $inferredName ($confidence%)"
+                                inferredName != null -> "📍 $inferredName"
+                                currentLocation != null -> "📍 ±${currentLocation.accuracy?.toInt() ?: "?"}m"
+                                else -> "📍 …"
+                            }
+                            val badgeColor = when {
+                                currentLocation == null -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                inferredName != null && (confidence ?: 0) >= 60 -> Color(0xFF4CAF50)
+                                inferredName != null -> Color(0xFFFFC107)
+                                else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                            }
                             Text(
-                                text = "📍 $locLabel",
+                                text = locLabel,
                                 fontSize = 11.sp,
-                                color = if (currentLocation != null)
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                                else
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                color = badgeColor,
+                                modifier = Modifier.clickable(enabled = currentLocation != null) {
+                                    locationCorrectionText = inferredName ?: ""
+                                    showLocationDialog = true
+                                }
                             )
                         }
                     }
@@ -159,6 +174,54 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    // Location confirm/correct dialog
+    if (showLocationDialog) {
+        val inferredName = currentLocation?.inferredName
+        val confidence = currentLocation?.locationConfidence
+        AlertDialog(
+            onDismissRequest = { showLocationDialog = false },
+            title = { Text("📍 Your Location") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (inferredName != null) {
+                        Text(
+                            text = "Detected: $inferredName" + if (confidence != null) " ($confidence% confident)" else "",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    } else {
+                        Text(
+                            text = "Location not recognized." +
+                                (currentLocation?.accuracy?.let { " GPS ±${it.toInt()}m." } ?: ""),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    Text("Correct or confirm your location:", style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(
+                        value = locationCorrectionText,
+                        onValueChange = { locationCorrectionText = it },
+                        label = { Text("Location name") },
+                        placeholder = { Text("e.g. home, bro's place") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val name = locationCorrectionText.trim()
+                        if (name.isNotEmpty()) onConfirmLocation(name)
+                        showLocationDialog = false
+                    },
+                    enabled = locationCorrectionText.isNotBlank()
+                ) { Text(if (locationCorrectionText.trim() == inferredName) "✓ Confirm" else "Save Location") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLocationDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
