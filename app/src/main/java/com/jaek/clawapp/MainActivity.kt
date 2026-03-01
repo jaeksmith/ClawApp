@@ -42,8 +42,10 @@ class MainActivity : ComponentActivity() {
     private val muteState = mutableStateOf(MuteState())
     private val locationState = mutableStateOf<LocationPoint?>(null)
     private val locationTracking = mutableStateOf(true)
+    private val namedPlaces = mutableStateOf<List<String>>(emptyList())
     private var connectionCollectJob: Job? = null
     private var locationCollectJob: Job? = null
+    private var placesCollectJob: Job? = null
     private var catsCollectJob: Job? = null
     private var notifsCollectJob: Job? = null
     private var muteCollectJob: Job? = null
@@ -76,6 +78,10 @@ class MainActivity : ComponentActivity() {
             locationCollectJob = lifecycleScope.launch {
                 svc.locationTracker.currentLocation.collect { locationState.value = it }
             }
+            placesCollectJob?.cancel()
+            placesCollectJob = lifecycleScope.launch {
+                svc.locationTracker.namedPlaces.collect { namedPlaces.value = it }
+            }
             // Read initial tracking pref
             val prefs = getSharedPreferences("claw_settings", MODE_PRIVATE)
             locationTracking.value = prefs.getBoolean("location_tracking_enabled", true)
@@ -90,7 +96,7 @@ class MainActivity : ComponentActivity() {
 
         override fun onServiceDisconnected(name: android.content.ComponentName?) {
             listOf(connectionCollectJob, catsCollectJob, notifsCollectJob, muteCollectJob, locationCollectJob).forEach { it?.cancel() }
-            connectionCollectJob = null; catsCollectJob = null; notifsCollectJob = null; muteCollectJob = null; locationCollectJob = null
+            connectionCollectJob = null; catsCollectJob = null; notifsCollectJob = null; muteCollectJob = null; locationCollectJob = null; placesCollectJob = null
             clawService = null; bound = false
             serviceRunning.value = false; connectionState.value = false
         }
@@ -149,6 +155,7 @@ class MainActivity : ComponentActivity() {
                         onCatClick = { cat -> selectedCat = cat; currentScreen = Screen.CAT_DETAIL },
                         onSettingsClick = { currentScreen = Screen.SETTINGS },
                         onQuickControlsClick = { currentScreen = Screen.QUICK_CONTROLS },
+                        namedPlaces = namedPlaces.value,
                         onConfirmLocation = { name ->
                             clawService?.locationTracker?.saveCurrentAsNamedLocation(name)
                         }

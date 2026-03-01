@@ -30,7 +30,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(
     isConnected: Boolean,
@@ -39,6 +39,7 @@ fun HomeScreen(
     muteState: MuteState = MuteState(),
     currentLocation: LocationPoint? = null,
     locationTracking: Boolean = false,
+    namedPlaces: List<String> = emptyList(),
     onCatClick: (CatState) -> Unit,
     onSettingsClick: () -> Unit,
     onQuickControlsClick: () -> Unit = {},
@@ -187,7 +188,7 @@ fun HomeScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (inferredName != null) {
                         Text(
-                            text = "Detected: $inferredName" + if (confidence != null) " ($confidence% confident)" else "",
+                            text = "Detected: $inferredName" + if (confidence != null) " ($confidence%)" else "",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     } else {
@@ -197,7 +198,25 @@ fun HomeScreen(
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
-                    Text("Correct or confirm your location:", style = MaterialTheme.typography.bodySmall)
+                    // Known places as tappable chips
+                    if (namedPlaces.isNotEmpty()) {
+                        Text("Select a known place:", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                        androidx.compose.foundation.layout.FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            namedPlaces.forEach { place ->
+                                val isSelected = locationCorrectionText == place
+                                androidx.compose.material3.FilterChip(
+                                    selected = isSelected,
+                                    onClick = { locationCorrectionText = place },
+                                    label = { Text(place, fontSize = 13.sp) }
+                                )
+                            }
+                        }
+                    }
+                    Text("Or type a new name:", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                     OutlinedTextField(
                         value = locationCorrectionText,
                         onValueChange = { locationCorrectionText = it },

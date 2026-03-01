@@ -50,6 +50,13 @@ class LocationTracker(private val context: Context) : SensorEventListener {
     private val _tracking = MutableStateFlow(false)
     val tracking: StateFlow<Boolean> = _tracking.asStateFlow()
 
+    private val _namedPlaces = MutableStateFlow<List<String>>(emptyList())
+    val namedPlaces: StateFlow<List<String>> = _namedPlaces.asStateFlow()
+
+    fun onNamedPlaces(places: List<String>) {
+        _namedPlaces.value = places
+    }
+
     // Callback to send WS messages
     var sendWsMessage: ((String) -> Unit)? = null
 

@@ -164,6 +164,10 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
         catRepository.applyMuteState(until)
     }
 
+    override fun onNamedPlaces(names: List<String>) {
+        locationTracker.onNamedPlaces(names)
+    }
+
     override fun onCatStateChanged(catName: String, state: String, stateSetAt: Long?, source: String) {
         AppLogger.i(TAG, "Cat state push: $catName -> $state (from $source)")
         catRepository.applyStateChange(catName, state, stateSetAt)

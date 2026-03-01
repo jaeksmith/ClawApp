@@ -27,6 +27,7 @@ class RelayConnection(
         fun onCatStateSnapshot(cats: Map<String, Any?>, notifications: List<Any?>, lastCatOutAt: Long?, mute: Map<String, Any?>?)
         fun onCatStateChanged(catName: String, state: String, stateSetAt: Long?, source: String)
         fun onMuteState(until: Long?)
+        fun onNamedPlaces(names: List<String>)
     }
 
     private val client = OkHttpClient.Builder()
@@ -146,6 +147,20 @@ class RelayConnection(
                             val until = (muteRaw?.get("until") as? Double)?.toLong()
                             handler.post { listener?.onMuteState(until) }
                         }
+                        "location_places" -> {
+                            @Suppress("UNCHECKED_CAST")
+                            val places = msg["places"] as? List<Any?> ?: emptyList()
+                            val names = places.mapNotNull { (it as? Map<*, *>)?.get("name") as? String }
+                            handler.post { listener?.onNamedPlaces(names) }
+                        }
+                    }
+
+                    // Also handle location_places pushed as a command action
+                    if (msg["type"] == "command" && msg["action"] == "location_places") {
+                        @Suppress("UNCHECKED_CAST")
+                        val places = msg["places"] as? List<Any?> ?: emptyList()
+                        val names = places.mapNotNull { (it as? Map<*, *>)?.get("name") as? String }
+                        handler.post { listener?.onNamedPlaces(names) }
                     }
                 } catch (e: Exception) {
                     AppLogger.e(TAG, "Error handling message", e)
