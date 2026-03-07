@@ -24,7 +24,7 @@ class RelayConnection(
     interface CommandListener {
         fun onCommand(action: String, message: String, extra: Map<String, Any?>)
         fun onConnectionChanged(connected: Boolean)
-        fun onCatStateSnapshot(cats: Map<String, Any?>, notifications: List<Any?>, lastCatOutAt: Long?, mute: Map<String, Any?>?)
+        fun onCatStateSnapshot(cats: Map<String, Any?>, notifications: List<Any?>, lastCatOutAt: Long?, mute: Map<String, Any?>?, repeatingState: Map<String, Any?>? = null)
         fun onCatStateChanged(catName: String, state: String, stateSetAt: Long?, source: String)
         fun onMuteState(until: Long?)
         fun onNamedPlaces(names: List<String>)
@@ -132,7 +132,9 @@ class RelayConnection(
                             val lastOut = (msg["lastCatOutAt"] as? Double)?.toLong()
                             @Suppress("UNCHECKED_CAST")
                             val muteRaw = msg["mute"] as? Map<String, Any?>
-                            handler.post { listener?.onCatStateSnapshot(catsMap, notifs, lastOut, muteRaw) }
+                            @Suppress("UNCHECKED_CAST")
+                            val repeatingStateRaw = msg["repeatingState"] as? Map<String, Any?>
+                            handler.post { listener?.onCatStateSnapshot(catsMap, notifs, lastOut, muteRaw, repeatingStateRaw) }
                         }
                         "cat_state_changed" -> {
                             val catName = msg["catName"] as? String ?: return

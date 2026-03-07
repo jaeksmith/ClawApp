@@ -23,8 +23,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
 import com.jaek.clawapp.model.CatImages
+import com.jaek.clawapp.model.CatNotification
 import com.jaek.clawapp.model.CatState
 import com.jaek.clawapp.model.MuteState
+import com.jaek.clawapp.model.RepeatingTimerState
 import com.jaek.clawapp.service.LocationPoint
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -40,9 +42,13 @@ fun HomeScreen(
     currentLocation: LocationPoint? = null,
     locationTracking: Boolean = false,
     namedPlaces: List<String> = emptyList(),
+    notifications: List<CatNotification> = emptyList(),
+    repeatingState: Map<String, RepeatingTimerState> = emptyMap(),
     onCatClick: (CatState) -> Unit,
     onSettingsClick: () -> Unit,
     onQuickControlsClick: () -> Unit = {},
+    onJustChecked: () -> Unit = {},
+    onRestartRepeating: () -> Unit = {},
     onConfirmLocation: (confirmedName: String) -> Unit = {}
 ) {
     var showLocationDialog by remember { mutableStateOf(false) }
@@ -174,6 +180,14 @@ fun HomeScreen(
                     }
                 }
             }
+
+            // Cat Watch status bar — shows only when a future repeating alarm is armed
+            CatWatchBar(
+                notifications = notifications,
+                repeatingState = repeatingState,
+                onJustChecked = onJustChecked,
+                onRestartRepeating = onRestartRepeating
+            )
         }
     }
 
@@ -241,6 +255,77 @@ fun HomeScreen(
                 TextButton(onClick = { showLocationDialog = false }) { Text("Cancel") }
             }
         )
+    }
+}
+
+@Composable
+fun CatWatchBar(
+    notifications: List<CatNotification>,
+    repeatingState: Map<String, RepeatingTimerState>,
+    onJustChecked: () -> Unit,
+    onRestartRepeating: () -> Unit
+) {
+    // Find the soonest upcoming repeating alarm
+    val now = System.currentTimeMillis()
+    val nextFire = repeatingState.values
+        .filter { it.nextFireAt > now }
+        .minByOrNull { it.nextFireAt }
+        ?: return  // nothing armed — hide bar entirely
+
+    // "just checked" timestamp — stored in memory, reset on button press or bar appearing
+    var lastCheckedMs by remember { mutableStateOf(now) }
+    // Tick every 30s to refresh displayed times
+    var tick by remember { mutableStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(30_000)
+            tick++
+        }
+    }
+    @Suppress("UNUSED_EXPRESSION") tick  // force recompose on tick
+
+    val sinceChecked = System.currentTimeMillis() - lastCheckedMs
+    val tillNext = nextFire.nextFireAt - System.currentTimeMillis()
+
+    fun formatDuration(ms: Long): String {
+        val totalMin = (ms / 60000).coerceAtLeast(0)
+        return if (totalMin < 60) "${totalMin}m" else "${totalMin / 60}h ${totalMin % 60}m"
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        tonalElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "🐾 Checked ${formatDuration(sinceChecked)} ago  ·  next alarm in ${formatDuration(tillNext)}",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            TextButton(
+                onClick = {
+                    lastCheckedMs = System.currentTimeMillis()
+                    onJustChecked()
+                },
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+            ) { Text("Just checked", fontSize = 11.sp) }
+            TextButton(
+                onClick = {
+                    lastCheckedMs = System.currentTimeMillis()
+                    onRestartRepeating()
+                },
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+            ) { Text("↺ Restart", fontSize = 11.sp) }
+        }
     }
 }
 

@@ -161,9 +161,9 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
         updateNotification(text)
     }
 
-    override fun onCatStateSnapshot(cats: Map<String, Any?>, notifications: List<Any?>, lastCatOutAt: Long?, mute: Map<String, Any?>?) {
+    override fun onCatStateSnapshot(cats: Map<String, Any?>, notifications: List<Any?>, lastCatOutAt: Long?, mute: Map<String, Any?>?, repeatingState: Map<String, Any?>?) {
         AppLogger.i(TAG, "Cat snapshot received: ${cats.keys}")
-        catRepository.applySnapshot(cats, notifications, mute)
+        catRepository.applySnapshot(cats, notifications, mute, repeatingState)
     }
 
     override fun onMuteState(until: Long?) {

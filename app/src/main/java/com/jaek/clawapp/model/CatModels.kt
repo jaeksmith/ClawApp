@@ -61,6 +61,12 @@ data class MuteState(
     val isMuted: Boolean get() = until != null && System.currentTimeMillis() < until
 }
 
+/** Timer state for a single repeating notification, as reported by the relay. */
+data class RepeatingTimerState(
+    val nextFireAt: Long,
+    val currentDelayMs: Long
+)
+
 // Server response shapes
 data class CatsResponse(
     val cats: Map<String, CatServerState>,

@@ -20,6 +20,7 @@ import com.jaek.clawapp.model.MuteState
 import com.jaek.clawapp.service.LocationPoint
 import com.jaek.clawapp.service.ClawService
 import com.jaek.clawapp.AppLogger
+import com.jaek.clawapp.model.RepeatingTimerState
 import com.jaek.clawapp.ui.screen.*
 import com.jaek.clawapp.ui.theme.ClawAppTheme
 import kotlinx.coroutines.Job
@@ -40,6 +41,7 @@ class MainActivity : ComponentActivity() {
     private val catsState = mutableStateOf<Map<String, CatState>>(emptyMap())
     private val notificationsState = mutableStateOf<List<CatNotification>>(emptyList())
     private val muteState = mutableStateOf(MuteState())
+    private val repeatingState = mutableStateOf<Map<String, RepeatingTimerState>>(emptyMap())
     private val locationState = mutableStateOf<LocationPoint?>(null)
     private val locationTracking = mutableStateOf(true)
     private val namedPlaces = mutableStateOf<List<String>>(emptyList())
@@ -73,6 +75,9 @@ class MainActivity : ComponentActivity() {
             muteCollectJob?.cancel()
             muteCollectJob = lifecycleScope.launch {
                 svc.catRepository.mute.collect { muteState.value = it }
+            }
+            lifecycleScope.launch {
+                svc.catRepository.repeatingState.collect { repeatingState.value = it }
             }
             locationCollectJob?.cancel()
             locationCollectJob = lifecycleScope.launch {
@@ -156,6 +161,10 @@ class MainActivity : ComponentActivity() {
                         onSettingsClick = { currentScreen = Screen.SETTINGS },
                         onQuickControlsClick = { currentScreen = Screen.QUICK_CONTROLS },
                         namedPlaces = namedPlaces.value,
+                        notifications = notificationsState.value,
+                        repeatingState = repeatingState.value,
+                        onJustChecked = { clawService?.catRepository?.restartRepeating() },
+                        onRestartRepeating = { clawService?.catRepository?.restartRepeating() },
                         onConfirmLocation = { name ->
                             clawService?.locationTracker?.saveCurrentAsNamedLocation(name)
                         }

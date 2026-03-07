@@ -22,9 +22,12 @@ class CatRepository {
     private val _mute = MutableStateFlow(MuteState())
     val mute: StateFlow<MuteState> = _mute.asStateFlow()
 
+    private val _repeatingState = MutableStateFlow<Map<String, RepeatingTimerState>>(emptyMap())
+    val repeatingState: StateFlow<Map<String, RepeatingTimerState>> = _repeatingState.asStateFlow()
+
     var sendWsMessage: ((String) -> Unit)? = null
 
-    fun applySnapshot(catsMap: Map<String, Any?>, notifsList: List<Any?>, muteRaw: Map<String, Any?>? = null) {
+    fun applySnapshot(catsMap: Map<String, Any?>, notifsList: List<Any?>, muteRaw: Map<String, Any?>? = null, repeatingStateRaw: Map<String, Any?>? = null) {
         val parsedCats = catsMap.mapNotNull { (name, raw) ->
             @Suppress("UNCHECKED_CAST")
             val m = raw as? Map<String, Any?> ?: return@mapNotNull null
@@ -47,7 +50,22 @@ class CatRepository {
 
         if (muteRaw != null) applyMuteRaw(muteRaw)
 
+        if (repeatingStateRaw != null) {
+            @Suppress("UNCHECKED_CAST")
+            val parsed = repeatingStateRaw.mapNotNull { (id, raw) ->
+                val m = raw as? Map<String, Any?> ?: return@mapNotNull null
+                val nextFireAt = (m["nextFireAt"] as? Double)?.toLong() ?: return@mapNotNull null
+                val currentDelayMs = (m["currentDelayMs"] as? Double)?.toLong() ?: return@mapNotNull null
+                id to RepeatingTimerState(nextFireAt, currentDelayMs)
+            }.toMap()
+            _repeatingState.value = parsed
+        }
+
         AppLogger.i(TAG, "Snapshot applied: cats=${parsedCats.keys}, notifs=${parsedNotifs.size}")
+    }
+
+    fun restartRepeating() {
+        sendWsMessage?.invoke(com.google.gson.Gson().toJson(mapOf("type" to "restart_repeating")))
     }
 
     fun applyStateChange(catName: String, newState: String, stateSetAt: Long?) {

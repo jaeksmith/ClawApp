@@ -84,7 +84,7 @@ class ServiceRestartWorker(
         val channel = NotificationChannel(
             RESTORE_CHANNEL_ID,
             "Claw Restore",
-            NotificationManager.IMPORTANCE_HIGH
+            NotificationManager.IMPORTANCE_DEFAULT
         ).apply { description = "Tap to reconnect ClawApp to the relay" }
         nm.createNotificationChannel(channel)
 

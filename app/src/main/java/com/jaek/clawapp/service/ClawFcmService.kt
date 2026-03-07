@@ -117,7 +117,8 @@ class ClawFcmService : FirebaseMessagingService() {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setDefaults(NotificationCompat.DEFAULT_LIGHTS or NotificationCompat.DEFAULT_VIBRATE)
+            .setSound(null)  // no sound — reconnect alerts are status, not urgent
             .setContentIntent(tapIntent)
             .build()
 
