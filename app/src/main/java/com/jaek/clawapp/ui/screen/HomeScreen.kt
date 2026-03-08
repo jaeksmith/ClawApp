@@ -335,8 +335,10 @@ fun CatWatchBar(
             .minOrNull()
     }
 
+    // Grace window: keep showing a repeating entry for up to 90s after it passes zero
+    // (relay fires within 10s but network/processing adds a few more seconds)
     val nextRepeatingMs = repeatingState.values
-        .filter { it.nextFireAt > now }
+        .filter { it.nextFireAt > now - 90_000 }
         .minByOrNull { it.nextFireAt }
         ?.nextFireAt
 
@@ -356,6 +358,7 @@ fun CatWatchBar(
     }
 
     val nextLabel = when {
+        nextAlarmMs != null && nextAlarmMs <= now -> "now"
         nextAlarmMs != null -> formatOffset(nextAlarmMs - now)
         hasRepeating        -> "arms when cats go out"
         else                -> "scheduled"
