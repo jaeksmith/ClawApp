@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -181,8 +184,9 @@ fun HomeScreen(
                 }
             }
 
-            // Cat Watch status bar — shows only when a future repeating alarm is armed
+            // Cat Watch status bar — shows only when alert cats are out AND alarms configured
             CatWatchBar(
+                cats = cats,
                 notifications = notifications,
                 repeatingState = repeatingState,
                 onJustChecked = onJustChecked,
@@ -260,18 +264,25 @@ fun HomeScreen(
 
 @Composable
 fun CatWatchBar(
+    cats: Map<String, CatState>,
     notifications: List<CatNotification>,
     repeatingState: Map<String, RepeatingTimerState>,
     onJustChecked: () -> Unit,
     onRestartRepeating: () -> Unit
 ) {
-    // Hide if no notifications configured at all
+    // Only show when notifications are configured AND at least one alert cat (outside/unknown, non-outdoorOnly)
     if (notifications.isEmpty()) return
+    val hasAlertCat = cats.values.any {
+        !it.outdoorOnly && (it.state == CatLocation.OUTSIDE || it.state == CatLocation.UNKNOWN)
+    }
+    if (!hasAlertCat) return
 
     val hasRepeating = notifications.any { it.type == "repeating" }
 
-    // "just checked" timestamp — session memory, resets on button press
-    var lastCheckedMs by remember { mutableStateOf(System.currentTimeMillis()) }
+    // "just checked" timestamp — persisted in SharedPreferences across app opens
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { context.getSharedPreferences("cat_watch", android.content.Context.MODE_PRIVATE) }
+    var lastCheckedMs by remember { mutableStateOf(prefs.getLong("last_checked", System.currentTimeMillis())) }
 
     // Tick every 30s to refresh countdown displays
     var tick by remember { mutableStateOf(0) }
@@ -313,16 +324,25 @@ fun CatWatchBar(
 
     val nextAlarmMs = listOfNotNull(nextRepeatingMs, nextAbsoluteMs()).minOrNull()
 
-    fun formatDuration(ms: Long): String {
-        val totalMin = ((ms - now) / 60000).coerceAtLeast(0)
-        return if (totalMin < 60) "${totalMin}m" else "${totalMin / 60}h ${totalMin % 60}m"
+    fun formatOffset(deltaMs: Long): String {
+        val totalSec = (deltaMs / 1000).coerceAtLeast(0)
+        val totalMin = totalSec / 60
+        val secs = totalSec % 60
+        val hours = totalMin / 60
+        val mins = totalMin % 60
+        return when {
+            totalMin < 10  -> "${totalMin}m ${secs}s"
+            totalMin < 600 -> "${hours}h ${mins}m"   // < 10h
+            else           -> "${hours}h"
+        }
     }
 
     val nextLabel = when {
-        nextAlarmMs != null -> "next alarm in ${formatDuration(nextAlarmMs)}"
-        hasRepeating -> "repeating arms when cats go out"
-        else -> "scheduled alarms active"
+        nextAlarmMs != null -> formatOffset(nextAlarmMs - now)
+        hasRepeating        -> "arms when cats go out"
+        else                -> "scheduled"
     }
+    val checkedLabel = formatOffset(now - lastCheckedMs)
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -332,34 +352,60 @@ fun CatWatchBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                val sinceChecked = (now - lastCheckedMs) / 60000
-                val checkedLabel = if (sinceChecked < 1) "just now" else "${sinceChecked}m ago"
-                Text(
-                    text = "🐾 Checked $checkedLabel  ·  $nextLabel",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            TextButton(
+            // Left: "Just checked" icon button
+            IconButton(
                 onClick = {
-                    lastCheckedMs = System.currentTimeMillis()
+                    val t = System.currentTimeMillis()
+                    lastCheckedMs = t
+                    prefs.edit().putLong("last_checked", t).apply()
                     onJustChecked()
                 },
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-            ) { Text("Just checked", fontSize = 11.sp) }
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckBox,
+                    contentDescription = "Just checked",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            // Center: labels
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "🐾  Checked: $checkedLabel   Next: $nextLabel",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            // Right: restart icon button (only if repeating notifications exist)
             if (hasRepeating) {
-                TextButton(
+                IconButton(
                     onClick = {
-                        lastCheckedMs = System.currentTimeMillis()
+                        val t = System.currentTimeMillis()
+                        lastCheckedMs = t
+                        prefs.edit().putLong("last_checked", t).apply()
                         onRestartRepeating()
                     },
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                ) { Text("↺ Restart", fontSize = 11.sp) }
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Restart sequence",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            } else {
+                Spacer(Modifier.size(36.dp))
             }
         }
     }

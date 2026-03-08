@@ -28,6 +28,7 @@ class RelayConnection(
         fun onCatStateChanged(catName: String, state: String, stateSetAt: Long?, source: String)
         fun onMuteState(until: Long?)
         fun onNamedPlaces(names: List<String>)
+        fun onRepeatingStateUpdate(raw: Map<String, Any?>)
     }
 
     private val client = OkHttpClient.Builder()
@@ -148,6 +149,11 @@ class RelayConnection(
                             val muteRaw = msg["mute"] as? Map<String, Any?>
                             val until = (muteRaw?.get("until") as? Double)?.toLong()
                             handler.post { listener?.onMuteState(until) }
+                        }
+                        "repeating_state_update" -> {
+                            @Suppress("UNCHECKED_CAST")
+                            val rs = msg["repeatingState"] as? Map<String, Any?>
+                            if (rs != null) handler.post { listener?.onRepeatingStateUpdate(rs) }
                         }
                         "location_places" -> {
                             @Suppress("UNCHECKED_CAST")

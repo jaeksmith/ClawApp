@@ -64,6 +64,17 @@ class CatRepository {
         AppLogger.i(TAG, "Snapshot applied: cats=${parsedCats.keys}, notifs=${parsedNotifs.size}")
     }
 
+    fun applyRepeatingState(raw: Map<String, Any?>) {
+        @Suppress("UNCHECKED_CAST")
+        val parsed = raw.mapNotNull { (id, v) ->
+            val m = v as? Map<String, Any?> ?: return@mapNotNull null
+            val nextFireAt = (m["nextFireAt"] as? Double)?.toLong() ?: return@mapNotNull null
+            val currentDelayMs = (m["currentDelayMs"] as? Double)?.toLong() ?: return@mapNotNull null
+            id to RepeatingTimerState(nextFireAt, currentDelayMs)
+        }.toMap()
+        _repeatingState.value = parsed
+    }
+
     fun restartRepeating() {
         sendWsMessage?.invoke(com.google.gson.Gson().toJson(mapOf("type" to "restart_repeating")))
     }
