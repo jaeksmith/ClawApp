@@ -81,11 +81,19 @@ class ServiceRestartWorker(
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // Ensure channel exists
+        val soundUri = android.net.Uri.parse("android.resource://${context.packageName}/raw/reconnect_alert")
+        val audioAttrs = android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
         val channel = NotificationChannel(
             RESTORE_CHANNEL_ID,
             "Claw Restore",
             NotificationManager.IMPORTANCE_DEFAULT
-        ).apply { description = "Tap to reconnect ClawApp to the relay" }
+        ).apply {
+            description = "Tap to reconnect ClawApp to the relay"
+            setSound(soundUri, audioAttrs)
+        }
         nm.createNotificationChannel(channel)
 
         // Tap → launch MainActivity (which starts the service)

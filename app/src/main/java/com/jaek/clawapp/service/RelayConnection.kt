@@ -219,9 +219,17 @@ class RelayConnection(
 
         val nm = ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         val channelId = "claw_tailscale_nudge"
+        val soundUri = android.net.Uri.parse("android.resource://${ctx.packageName}/raw/reconnect_alert")
+        val audioAttrs = android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
         val channel = android.app.NotificationChannel(
             channelId, "Network Alerts", android.app.NotificationManager.IMPORTANCE_DEFAULT
-        ).apply { description = "Alerts when relay is unreachable" }
+        ).apply {
+            description = "Alerts when relay is unreachable"
+            setSound(soundUri, audioAttrs)
+        }
         nm.createNotificationChannel(channel)
 
         // Open Tailscale intent

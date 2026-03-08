@@ -118,7 +118,7 @@ class ClawFcmService : FirebaseMessagingService() {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
             .setDefaults(NotificationCompat.DEFAULT_LIGHTS or NotificationCompat.DEFAULT_VIBRATE)
-            .setSound(null)  // no sound — reconnect alerts are status, not urgent
+            .setSound(android.net.Uri.parse("android.resource://${packageName}/raw/reconnect_alert"))
             .setContentIntent(tapIntent)
             .build()
 
@@ -127,6 +127,11 @@ class ClawFcmService : FirebaseMessagingService() {
     }
 
     private fun ensureNotificationChannel() {
+        val soundUri = android.net.Uri.parse("android.resource://${packageName}/raw/reconnect_alert")
+        val audioAttrs = android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Claw Alerts",
@@ -135,6 +140,7 @@ class ClawFcmService : FirebaseMessagingService() {
             description = "Urgent alerts from Claw"
             enableVibration(true)
             setBypassDnd(true)
+            setSound(soundUri, audioAttrs)
         }
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(channel)
