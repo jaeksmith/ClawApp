@@ -150,6 +150,29 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
                 val confidence = (current?.get("locationConfidence") as? Number)?.toInt()
                 locationTracker.onInferredLocation(inferredName, confidence)
             }
+            "repeating_state_update" -> {
+                @Suppress("UNCHECKED_CAST")
+                val rs = extra["repeatingState"] as? Map<String, Any?>
+                if (rs != null) catRepository.applyRepeatingState(rs)
+            }
+            "cat_state_changed" -> {
+                val catName = extra["catName"] as? String ?: return
+                val catState = extra["state"] as? String ?: return
+                val stateSetAt = (extra["stateSetAt"] as? Double)?.toLong()
+                catRepository.applyStateChange(catName, catState, stateSetAt)
+            }
+            "mute_state" -> {
+                @Suppress("UNCHECKED_CAST")
+                val muteRaw = extra["mute"] as? Map<String, Any?>
+                val until = (muteRaw?.get("until") as? Double)?.toLong()
+                catRepository.applyMuteState(until)
+            }
+            "location_places" -> {
+                @Suppress("UNCHECKED_CAST")
+                val places = extra["places"] as? List<Any?> ?: emptyList()
+                val names = places.mapNotNull { (it as? Map<*, *>)?.get("name") as? String }
+                locationTracker.onNamedPlaces(names)
+            }
             else -> AppLogger.w(TAG, "Unknown command action: $action")
         }
     }
