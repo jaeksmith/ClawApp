@@ -284,17 +284,35 @@ fun CatWatchBar(
     val prefs = remember { context.getSharedPreferences("cat_watch", android.content.Context.MODE_PRIVATE) }
     var lastCheckedMs by remember { mutableStateOf(prefs.getLong("last_checked", System.currentTimeMillis())) }
 
-    // Tick every 30s to refresh countdown displays
-    var tick by remember { mutableStateOf(0) }
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    // Tick at variable resolution based on smallest visible unit:
+    // seconds visible (< 10 min on either counter) → 1s; otherwise → 60s
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    val nextAlarmForTick = run {
+        val cal = java.util.Calendar.getInstance()
+        val absMs = notifications.filter { it.type == "absolute" && it.absoluteTime != null }
+            .mapNotNull { n ->
+                val p = n.absoluteTime!!.split(":")
+                if (p.size != 2) return@mapNotNull null
+                cal.timeInMillis = System.currentTimeMillis()
+                cal.set(java.util.Calendar.HOUR_OF_DAY, p[0].toIntOrNull() ?: return@mapNotNull null)
+                cal.set(java.util.Calendar.MINUTE, p[1].toIntOrNull() ?: return@mapNotNull null)
+                cal.set(java.util.Calendar.SECOND, 0); cal.set(java.util.Calendar.MILLISECOND, 0)
+                if (cal.timeInMillis <= System.currentTimeMillis()) cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+                cal.timeInMillis
+            }.minOrNull()
+        val repMs = repeatingState.values.filter { it.nextFireAt > System.currentTimeMillis() }.minByOrNull { it.nextFireAt }?.nextFireAt
+        listOfNotNull(absMs, repMs).minOrNull()
+    }
+    androidx.compose.runtime.LaunchedEffect(nextAlarmForTick) {
         while (true) {
-            kotlinx.coroutines.delay(30_000)
-            tick++
+            val t = System.currentTimeMillis()
+            val sinceChecked = t - prefs.getLong("last_checked", t)
+            val tillNext = (nextAlarmForTick ?: Long.MAX_VALUE) - t
+            val showSeconds = sinceChecked < 10 * 60_000 || tillNext < 10 * 60_000
+            kotlinx.coroutines.delay(if (showSeconds) 1_000L else 60_000L)
+            now = System.currentTimeMillis()
         }
     }
-    @Suppress("UNUSED_EXPRESSION") tick
-
-    val now = System.currentTimeMillis()
 
     // Calculate next alarm time across all notification types
     fun nextAbsoluteMs(): Long? {
@@ -389,12 +407,7 @@ fun CatWatchBar(
             // Right: restart icon button (only if repeating notifications exist)
             if (hasRepeating) {
                 IconButton(
-                    onClick = {
-                        val t = System.currentTimeMillis()
-                        lastCheckedMs = t
-                        prefs.edit().putLong("last_checked", t).apply()
-                        onRestartRepeating()
-                    },
+                    onClick = { onRestartRepeating() },  // does NOT reset checked timer
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
