@@ -29,6 +29,7 @@ class RelayConnection(
         fun onMuteState(until: Long?)
         fun onNamedPlaces(names: List<String>)
         fun onRepeatingStateUpdate(raw: Map<String, Any?>)
+        fun onWeightData(entries: List<Any?>)
     }
 
     private val client = OkHttpClient.Builder()
@@ -160,6 +161,11 @@ class RelayConnection(
                             val places = msg["places"] as? List<Any?> ?: emptyList()
                             val names = places.mapNotNull { (it as? Map<*, *>)?.get("name") as? String }
                             handler.post { listener?.onNamedPlaces(names) }
+                        }
+                        "weight_data" -> {
+                            @Suppress("UNCHECKED_CAST")
+                            val entries = msg["entries"] as? List<Any?> ?: emptyList()
+                            handler.post { listener?.onWeightData(entries) }
                         }
                     }
 

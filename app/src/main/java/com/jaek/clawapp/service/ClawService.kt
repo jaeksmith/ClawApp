@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import com.jaek.clawapp.MainActivity
 import com.jaek.clawapp.model.CatLocation
 import com.jaek.clawapp.repository.CatRepository
+import com.jaek.clawapp.repository.WeightRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,6 +45,9 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
 
     // Location tracker — shared with UI via binder
     val locationTracker by lazy { LocationTracker(this) }
+
+    // Weight repository — shared with UI via binder
+    val weightRepository = WeightRepository()
 
     // Observable connection state — always emits current value on collection (no race)
     private val _connectionState = MutableStateFlow(false)
@@ -101,6 +105,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
         }
         catRepository.sendWsMessage = { msg -> relay?.send(msg) }
         locationTracker.sendWsMessage = { msg -> relay?.send(msg) }
+        weightRepository.sendWsMessage = { msg -> relay?.send(msg) }
 
         // Auto-start location tracking unless user explicitly disabled it
         val trackingEnabled = prefs.getBoolean("location_tracking_enabled", true)
@@ -173,6 +178,11 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
                 val names = places.mapNotNull { (it as? Map<*, *>)?.get("name") as? String }
                 locationTracker.onNamedPlaces(names)
             }
+            "weight_data" -> {
+                @Suppress("UNCHECKED_CAST")
+                val entries = extra["entries"] as? List<Any?> ?: emptyList()
+                weightRepository.applyEntries(entries)
+            }
             else -> AppLogger.w(TAG, "Unknown command action: $action")
         }
     }
@@ -199,6 +209,10 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
 
     override fun onRepeatingStateUpdate(raw: Map<String, Any?>) {
         catRepository.applyRepeatingState(raw)
+    }
+
+    override fun onWeightData(entries: List<Any?>) {
+        weightRepository.applyEntries(entries)
     }
 
     override fun onCatStateChanged(catName: String, state: String, stateSetAt: Long?, source: String) {

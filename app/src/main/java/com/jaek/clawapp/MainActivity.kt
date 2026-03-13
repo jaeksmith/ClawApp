@@ -45,12 +45,14 @@ class MainActivity : ComponentActivity() {
     private val locationState = mutableStateOf<LocationPoint?>(null)
     private val locationTracking = mutableStateOf(true)
     private val namedPlaces = mutableStateOf<List<String>>(emptyList())
+    private val weightEntries = mutableStateOf<List<com.jaek.clawapp.model.WeightEntry>>(emptyList())
     private var connectionCollectJob: Job? = null
     private var locationCollectJob: Job? = null
     private var placesCollectJob: Job? = null
     private var catsCollectJob: Job? = null
     private var notifsCollectJob: Job? = null
     private var muteCollectJob: Job? = null
+    private var weightCollectJob: Job? = null
 
     private val relayUrl = mutableStateOf("ws://100.126.78.128:18790")
 
@@ -86,6 +88,10 @@ class MainActivity : ComponentActivity() {
             placesCollectJob?.cancel()
             placesCollectJob = lifecycleScope.launch {
                 svc.locationTracker.namedPlaces.collect { namedPlaces.value = it }
+            }
+            weightCollectJob?.cancel()
+            weightCollectJob = lifecycleScope.launch {
+                svc.weightRepository.entries.collect { weightEntries.value = it }
             }
             // Read initial tracking pref
             val prefs = getSharedPreferences("claw_settings", MODE_PRIVATE)
@@ -167,6 +173,10 @@ class MainActivity : ComponentActivity() {
                         onRestartRepeating = { clawService?.catRepository?.restartRepeating() },
                         onConfirmLocation = { name ->
                             clawService?.locationTracker?.saveCurrentAsNamedLocation(name)
+                        },
+                        weightEntries = weightEntries.value,
+                        onSaveWeight = { date, w, notes ->
+                            clawService?.weightRepository?.saveEntry(date, w, notes)
                         }
                     )
 

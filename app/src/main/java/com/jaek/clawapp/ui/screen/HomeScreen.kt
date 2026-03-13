@@ -3,6 +3,8 @@ package com.jaek.clawapp.ui.screen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -52,7 +54,9 @@ fun HomeScreen(
     onQuickControlsClick: () -> Unit = {},
     onJustChecked: () -> Unit = {},
     onRestartRepeating: () -> Unit = {},
-    onConfirmLocation: (confirmedName: String) -> Unit = {}
+    onConfirmLocation: (confirmedName: String) -> Unit = {},
+    weightEntries: List<com.jaek.clawapp.model.WeightEntry> = emptyList(),
+    onSaveWeight: (date: String, weight: Float, notes: String) -> Unit = { _, _, _ -> }
 ) {
     var showLocationDialog by remember { mutableStateOf(false) }
     var locationCorrectionText by remember { mutableStateOf("") }
@@ -124,6 +128,7 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
         ) {
             // Mute banner (shown when muted)
             if (muteState.isMuted && muteState.until != null) {
@@ -192,6 +197,15 @@ fun HomeScreen(
                 onJustChecked = onJustChecked,
                 onRestartRepeating = onRestartRepeating
             )
+
+            // Weight graph
+            if (weightEntries.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                WeightGraph(
+                    entries = weightEntries,
+                    onSaveEntry = onSaveWeight
+                )
+            }
         }
     }
 
