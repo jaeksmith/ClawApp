@@ -15,6 +15,7 @@ import com.jaek.clawapp.MainActivity
 import com.jaek.clawapp.model.CatLocation
 import com.jaek.clawapp.repository.CatRepository
 import com.jaek.clawapp.repository.WeightRepository
+import com.jaek.clawapp.repository.TaskRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,6 +49,10 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
 
     // Weight repository — shared with UI via binder
     val weightRepository = WeightRepository()
+
+    // Task repository — polls relay HTTP for active/completed tasks
+    var taskRepository: TaskRepository? = null
+        private set
 
     // Observable connection state — always emits current value on collection (no race)
     private val _connectionState = MutableStateFlow(false)
@@ -106,6 +111,18 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
         catRepository.sendWsMessage = { msg -> relay?.send(msg) }
         locationTracker.sendWsMessage = { msg -> relay?.send(msg) }
         weightRepository.sendWsMessage = { msg -> relay?.send(msg) }
+
+        // Derive HTTP base URL from WS URL (ws://host:port → http://host:port+1)
+        val httpBase = relayUrl
+            .replace(Regex("^ws://"), "http://")
+            .replace(Regex("^wss://"), "https://")
+            .replace(Regex(":(\\d+)$")) { m ->
+                ":${(m.groupValues[1].toIntOrNull() ?: 18790) + 1}"
+            }
+        val prefs2 = getSharedPreferences("claw_settings", Context.MODE_PRIVATE)
+        val token = prefs2.getString("relay_token", "7cbb1baa6b7737dfeae90c9865ec0e14") ?: "7cbb1baa6b7737dfeae90c9865ec0e14"
+        taskRepository?.stop()
+        taskRepository = TaskRepository(httpBase, token).also { it.start() }
 
         // Auto-start location tracking unless user explicitly disabled it
         val trackingEnabled = prefs.getBoolean("location_tracking_enabled", true)

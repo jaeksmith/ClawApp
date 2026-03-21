@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
 private enum class Screen {
     HOME, SETTINGS, CAT_DETAIL,
     NOTIFICATIONS, NOTIFICATION_EDIT,
-    QUICK_CONTROLS, LOG
+    QUICK_CONTROLS, LOG, TASKS
 }
 
 class MainActivity : ComponentActivity() {
@@ -46,6 +46,9 @@ class MainActivity : ComponentActivity() {
     private val locationTracking = mutableStateOf(true)
     private val namedPlaces = mutableStateOf<List<String>>(emptyList())
     private val weightEntries = mutableStateOf<List<com.jaek.clawapp.model.WeightEntry>>(emptyList())
+    private val activeTasks = mutableStateOf<List<com.jaek.clawapp.model.ClawTask>>(emptyList())
+    private val recentCompleted = mutableStateOf<List<com.jaek.clawapp.model.ClawTask>>(emptyList())
+    private val taskLastFetch = mutableStateOf<Long?>(null)
     private var connectionCollectJob: Job? = null
     private var locationCollectJob: Job? = null
     private var placesCollectJob: Job? = null
@@ -53,6 +56,7 @@ class MainActivity : ComponentActivity() {
     private var notifsCollectJob: Job? = null
     private var muteCollectJob: Job? = null
     private var weightCollectJob: Job? = null
+    private var taskCollectJob: Job? = null
 
     private val relayUrl = mutableStateOf("ws://100.126.78.128:18790")
 
@@ -92,6 +96,16 @@ class MainActivity : ComponentActivity() {
             weightCollectJob?.cancel()
             weightCollectJob = lifecycleScope.launch {
                 svc.weightRepository.entries.collect { weightEntries.value = it }
+            }
+            taskCollectJob?.cancel()
+            taskCollectJob = lifecycleScope.launch {
+                svc.taskRepository?.activeTasks?.collect { activeTasks.value = it }
+            }
+            lifecycleScope.launch {
+                svc.taskRepository?.recentCompleted?.collect { recentCompleted.value = it }
+            }
+            lifecycleScope.launch {
+                svc.taskRepository?.lastFetchMs?.collect { taskLastFetch.value = it }
             }
             // Read initial tracking pref
             val prefs = getSharedPreferences("claw_settings", MODE_PRIVATE)
@@ -151,6 +165,7 @@ class MainActivity : ComponentActivity() {
                         Screen.NOTIFICATION_EDIT -> Screen.NOTIFICATIONS
                         Screen.NOTIFICATIONS    -> Screen.SETTINGS
                         Screen.LOG              -> Screen.SETTINGS
+                        Screen.TASKS            -> Screen.HOME
                         else                    -> Screen.HOME
                     }
                 }
@@ -177,7 +192,10 @@ class MainActivity : ComponentActivity() {
                         weightEntries = weightEntries.value,
                         onSaveWeight = { date, w, notes ->
                             clawService?.weightRepository?.saveEntry(date, w, notes)
-                        }
+                        },
+                        activeTasks = activeTasks.value,
+                        recentCompleted = recentCompleted.value,
+                        onTaskPanelClick = { currentScreen = Screen.TASKS }
                     )
 
                     Screen.SETTINGS -> SettingsScreen(
@@ -233,6 +251,14 @@ class MainActivity : ComponentActivity() {
                     )
 
                     Screen.LOG -> LogScreen(onBack = { currentScreen = Screen.SETTINGS })
+
+                    Screen.TASKS -> TasksScreen(
+                        activeTasks = activeTasks.value,
+                        recentCompleted = recentCompleted.value,
+                        lastFetchMs = taskLastFetch.value,
+                        onRefresh = { clawService?.taskRepository?.refreshNow() },
+                        onBack = { currentScreen = Screen.HOME }
+                    )
 
                     Screen.QUICK_CONTROLS -> QuickControlsScreen(
                         muteState = muteState.value,

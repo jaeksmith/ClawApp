@@ -56,7 +56,10 @@ fun HomeScreen(
     onRestartRepeating: () -> Unit = {},
     onConfirmLocation: (confirmedName: String) -> Unit = {},
     weightEntries: List<com.jaek.clawapp.model.WeightEntry> = emptyList(),
-    onSaveWeight: (date: String, weight: Float, notes: String) -> Unit = { _, _, _ -> }
+    onSaveWeight: (date: String, weight: Float, notes: String) -> Unit = { _, _, _ -> },
+    activeTasks: List<com.jaek.clawapp.model.ClawTask> = emptyList(),
+    recentCompleted: List<com.jaek.clawapp.model.ClawTask> = emptyList(),
+    onTaskPanelClick: () -> Unit = {}
 ) {
     var showLocationDialog by remember { mutableStateOf(false) }
     var locationCorrectionText by remember { mutableStateOf("") }
@@ -196,6 +199,13 @@ fun HomeScreen(
                 repeatingState = repeatingState,
                 onJustChecked = onJustChecked,
                 onRestartRepeating = onRestartRepeating
+            )
+
+            // Task panel
+            TaskPanel(
+                activeTasks = activeTasks,
+                recentCompleted = recentCompleted,
+                onClick = onTaskPanelClick
             )
 
             // Weight graph
