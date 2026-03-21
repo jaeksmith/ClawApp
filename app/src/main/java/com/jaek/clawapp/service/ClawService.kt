@@ -50,9 +50,8 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     // Weight repository — shared with UI via binder
     val weightRepository = WeightRepository()
 
-    // Task repository — polls relay HTTP for active/completed tasks
-    var taskRepository: TaskRepository? = null
-        private set
+    // Task repository — updated via WS push (no polling)
+    val taskRepository = TaskRepository()
 
     // Observable connection state — always emits current value on collection (no race)
     private val _connectionState = MutableStateFlow(false)
@@ -112,17 +111,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
         locationTracker.sendWsMessage = { msg -> relay?.send(msg) }
         weightRepository.sendWsMessage = { msg -> relay?.send(msg) }
 
-        // Derive HTTP base URL from WS URL (ws://host:port → http://host:port+1)
-        val httpBase = relayUrl
-            .replace(Regex("^ws://"), "http://")
-            .replace(Regex("^wss://"), "https://")
-            .replace(Regex(":(\\d+)$")) { m ->
-                ":${(m.groupValues[1].toIntOrNull() ?: 18790) + 1}"
-            }
-        val prefs2 = getSharedPreferences("claw_settings", Context.MODE_PRIVATE)
-        val token = prefs2.getString("relay_token", "7cbb1baa6b7737dfeae90c9865ec0e14") ?: "7cbb1baa6b7737dfeae90c9865ec0e14"
-        taskRepository?.stop()
-        taskRepository = TaskRepository(httpBase, token).also { it.start() }
+        // TaskRepository is push-only — no init needed here
 
         // Auto-start location tracking unless user explicitly disabled it
         val trackingEnabled = prefs.getBoolean("location_tracking_enabled", true)
@@ -199,6 +188,12 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
                 @Suppress("UNCHECKED_CAST")
                 val entries = extra["entries"] as? List<Any?> ?: emptyList()
                 weightRepository.applyEntries(entries)
+            }
+            "task_update" -> {
+                @Suppress("UNCHECKED_CAST")
+                val active    = extra["active"]    as? List<Any?> ?: emptyList()
+                val completed = extra["completed"] as? List<Any?> ?: emptyList()
+                taskRepository.applyUpdate(active, completed)
             }
             else -> AppLogger.w(TAG, "Unknown command action: $action")
         }

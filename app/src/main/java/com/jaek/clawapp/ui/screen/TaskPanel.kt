@@ -18,82 +18,67 @@ fun TaskPanel(
     recentCompleted: List<ClawTask>,
     onClick: () -> Unit
 ) {
-    val running = activeTasks.count { it.effectiveStatus == "running" }
-    val stalled = activeTasks.count { it.effectiveStatus == "stalled" }
-    val recentFailed = recentCompleted.count { it.status == "failed" }
+    val running  = activeTasks.count { it.effectiveStatus == "running" }
+    val stalled  = activeTasks.count { it.effectiveStatus == "stalled" }
+    val complete = recentCompleted.count { it.status == "complete" }
+    val failed   = recentCompleted.count { it.status == "failed" }
 
-    // Only show if there's something worth showing
-    if (activeTasks.isEmpty() && recentCompleted.isEmpty()) return
+    val hasAlert = stalled > 0 || failed > 0
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         color = when {
-            stalled > 0 || recentFailed > 0 -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
-            running > 0 -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            hasAlert -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+            running > 0 -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
         },
         tonalElevation = 1.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .padding(horizontal = 12.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("🗂", fontSize = 14.sp)
-                if (running > 0) {
+                Text("🗂", fontSize = 13.sp)
+
+                // Always show all non-zero counts
+                if (running > 0) StatusChip("⚡ $running", Color(0xFF4CAF50))
+                if (stalled > 0) StatusChip("⚠️ $stalled", Color(0xFFFFC107))
+                if (failed  > 0) StatusChip("❌ $failed",  Color(0xFFF44336))
+                if (complete > 0) StatusChip("✅ $complete", MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+
+                if (running == 0 && stalled == 0 && failed == 0 && complete == 0) {
                     Text(
-                        "$running running",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF4CAF50)
+                        "no tasks",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
-                }
-                if (stalled > 0) {
-                    Text(
-                        "$stalled stalled",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFFFFC107)
-                    )
-                }
-                if (running == 0 && stalled == 0) {
-                    val last = recentCompleted.firstOrNull()
-                    if (last != null) {
-                        val emoji = if (last.status == "failed") "❌" else "✅"
-                        Text(
-                            "$emoji ${last.label}",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                    }
-                }
-                // Show stalled task labels inline
-                if (stalled > 0) {
-                    activeTasks.filter { it.effectiveStatus == "stalled" }.take(2).forEach { t ->
-                        Text(
-                            "· ${t.label}",
-                            fontSize = 11.sp,
-                            color = Color(0xFFFFC107),
-                            maxLines = 1
-                        )
-                    }
                 }
             }
 
             Text(
-                "tap for details",
+                "tasks ›",
                 fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
             )
         }
     }
+}
+
+@Composable
+private fun StatusChip(label: String, color: Color) {
+    Text(
+        label,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Medium,
+        color = color
+    )
 }

@@ -99,13 +99,13 @@ class MainActivity : ComponentActivity() {
             }
             taskCollectJob?.cancel()
             taskCollectJob = lifecycleScope.launch {
-                svc.taskRepository?.activeTasks?.collect { activeTasks.value = it }
+                svc.taskRepository.activeTasks.collect { activeTasks.value = it }
             }
             lifecycleScope.launch {
-                svc.taskRepository?.recentCompleted?.collect { recentCompleted.value = it }
+                svc.taskRepository.recentCompleted.collect { recentCompleted.value = it }
             }
             lifecycleScope.launch {
-                svc.taskRepository?.lastFetchMs?.collect { taskLastFetch.value = it }
+                svc.taskRepository.lastUpdateMs.collect { taskLastFetch.value = it }
             }
             // Read initial tracking pref
             val prefs = getSharedPreferences("claw_settings", MODE_PRIVATE)
@@ -256,7 +256,7 @@ class MainActivity : ComponentActivity() {
                         activeTasks = activeTasks.value,
                         recentCompleted = recentCompleted.value,
                         lastFetchMs = taskLastFetch.value,
-                        onRefresh = { clawService?.taskRepository?.refreshNow() },
+                        onRefresh = { /* push-only; no manual refresh needed */ },
                         onBack = { currentScreen = Screen.HOME }
                     )
 

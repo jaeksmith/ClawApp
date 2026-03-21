@@ -1,27 +1,14 @@
 package com.jaek.clawapp.repository
 
-import android.util.Log
 import com.jaek.clawapp.AppLogger
 import com.jaek.clawapp.model.ClawTask
-import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONObject
+import org.json.JSONArray
 
-class TaskRepository(
-    private val baseUrl: String,   // e.g. http://100.126.78.128:18791
-    private val token: String
-) {
-    companion object {
-        const val TAG = "TaskRepository"
-        const val POLL_INTERVAL_MS = 30_000L
-    }
-
-    private val client = OkHttpClient()
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+class TaskRepository {
+    companion object { const val TAG = "TaskRepository" }
 
     private val _activeTasks = MutableStateFlow<List<ClawTask>>(emptyList())
     val activeTasks: StateFlow<List<ClawTask>> = _activeTasks.asStateFlow()
@@ -29,76 +16,35 @@ class TaskRepository(
     private val _recentCompleted = MutableStateFlow<List<ClawTask>>(emptyList())
     val recentCompleted: StateFlow<List<ClawTask>> = _recentCompleted.asStateFlow()
 
-    private val _lastFetchMs = MutableStateFlow<Long?>(null)
-    val lastFetchMs: StateFlow<Long?> = _lastFetchMs.asStateFlow()
+    private val _lastUpdateMs = MutableStateFlow<Long?>(null)
+    val lastUpdateMs: StateFlow<Long?> = _lastUpdateMs.asStateFlow()
 
-    private var pollJob: Job? = null
+    /** Called by ClawService when a task_update command arrives via WS */
+    fun applyUpdate(activeRaw: List<Any?>, completedRaw: List<Any?>) {
+        _activeTasks.value = parseTasks(activeRaw)
+        _recentCompleted.value = parseTasks(completedRaw)
+            .sortedByDescending { it.spawnedAt }
+            .take(20)
+        _lastUpdateMs.value = System.currentTimeMillis()
+        AppLogger.i(TAG, "Tasks updated: ${_activeTasks.value.size} active, ${_recentCompleted.value.size} completed")
+    }
 
-    fun start() {
-        pollJob?.cancel()
-        pollJob = scope.launch {
-            while (isActive) {
-                fetchAll()
-                delay(POLL_INTERVAL_MS)
-            }
+    private fun parseTasks(raw: List<Any?>): List<ClawTask> =
+        raw.mapNotNull { item ->
+            @Suppress("UNCHECKED_CAST")
+            val m = item as? Map<String, Any?> ?: return@mapNotNull null
+            ClawTask(
+                id          = m["id"] as? String ?: return@mapNotNull null,
+                label       = m["label"] as? String ?: "Unnamed task",
+                type        = m["type"] as? String ?: "unknown",
+                sessionKey  = m["sessionKey"] as? String,
+                spawnedAt   = (m["spawnedAt"] as? Number)?.toLong() ?: 0L,
+                timeoutAt   = (m["timeoutAt"] as? Number)?.toLong() ?: 0L,
+                lastCheckAt = (m["lastCheckAt"] as? Number)?.toLong(),
+                status      = m["status"] as? String ?: "running",
+                channel     = m["channel"] as? String,
+                description = m["description"] as? String,
+                notes       = m["notes"] as? String
+            )
         }
-    }
-
-    fun stop() { pollJob?.cancel() }
-
-    fun refreshNow() {
-        scope.launch { fetchAll() }
-    }
-
-    private suspend fun fetchAll() {
-        try {
-            val active = fetchTaskList("/tasks")
-            val completed = fetchTaskList("/tasks/completed")
-            _activeTasks.value = active
-            // Show last 10 completed, most recent first
-            _recentCompleted.value = completed
-                .filter { it.status == "complete" || it.status == "failed" }
-                .sortedByDescending { it.spawnedAt }
-                .take(10)
-            _lastFetchMs.value = System.currentTimeMillis()
-        } catch (e: Exception) {
-            AppLogger.w(TAG, "Task fetch failed: ${e.message}")
-        }
-    }
-
-    private suspend fun fetchTaskList(path: String): List<ClawTask> = withContext(Dispatchers.IO) {
-        val req = Request.Builder()
-            .url("$baseUrl$path")
-            .header("Authorization", "Bearer $token")
-            .build()
-        val resp = client.newCall(req).execute()
-        if (!resp.isSuccessful) return@withContext emptyList()
-        val body = resp.body?.string() ?: return@withContext emptyList()
-        parseTasks(body)
-    }
-
-    private fun parseTasks(json: String): List<ClawTask> {
-        return try {
-            val arr = JSONObject(json).getJSONArray("tasks")
-            (0 until arr.length()).mapNotNull { i ->
-                val o = arr.getJSONObject(i)
-                ClawTask(
-                    id = o.optString("id"),
-                    label = o.optString("label", "Unnamed task"),
-                    type = o.optString("type", "unknown"),
-                    sessionKey = o.optString("sessionKey").ifEmpty { null },
-                    spawnedAt = o.optLong("spawnedAt", 0),
-                    timeoutAt = o.optLong("timeoutAt", 0),
-                    lastCheckAt = if (o.has("lastCheckAt")) o.optLong("lastCheckAt") else null,
-                    status = o.optString("status", "running"),
-                    channel = o.optString("channel").ifEmpty { null },
-                    description = o.optString("description").ifEmpty { null },
-                    notes = o.optString("notes").ifEmpty { null }
-                )
-            }
-        } catch (e: Exception) {
-            AppLogger.w(TAG, "Task parse error: ${e.message}")
-            emptyList()
-        }
-    }
 }
