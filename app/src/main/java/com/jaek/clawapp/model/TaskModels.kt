@@ -15,5 +15,10 @@ data class ClawTask(
 ) {
     val isActive: Boolean get() = status == "running" || status == "stalled"
     val isStalled: Boolean get() = status == "running" && System.currentTimeMillis() / 1000 > timeoutAt
-    val effectiveStatus: String get() = if (isStalled) "stalled" else status
+    // Normalise "success" → "complete" (legacy status name)
+    val effectiveStatus: String get() = when {
+        isStalled -> "stalled"
+        status == "success" -> "complete"
+        else -> status
+    }
 }

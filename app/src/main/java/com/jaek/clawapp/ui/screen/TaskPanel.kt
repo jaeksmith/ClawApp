@@ -20,8 +20,8 @@ fun TaskPanel(
 ) {
     val running  = activeTasks.count { it.effectiveStatus == "running" }
     val stalled  = activeTasks.count { it.effectiveStatus == "stalled" }
-    val complete = recentCompleted.count { it.status == "complete" }
-    val failed   = recentCompleted.count { it.status == "failed" }
+    val complete = recentCompleted.count { it.effectiveStatus == "complete" }
+    val failed   = recentCompleted.count { it.effectiveStatus == "failed" }
 
     val hasAlert = stalled > 0 || failed > 0
 
