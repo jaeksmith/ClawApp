@@ -47,7 +47,13 @@ fun TaskPanel(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("🗂", fontSize = 13.sp)
+                Text(
+                    "TASKS",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
 
                 // Always show all non-zero counts
                 if (running > 0) StatusChip("⚡ $running", Color(0xFF4CAF50))
