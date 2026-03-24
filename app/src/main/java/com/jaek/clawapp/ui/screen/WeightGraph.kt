@@ -127,8 +127,13 @@ fun WeightGraph(
                     val maxW = (weights.max() + 2f).let { kotlin.math.ceil(it.toDouble()).toFloat() }
                     val rangeW = maxW - minW
 
-                    fun xOf(idx: Int): Float =
-                        padLeft + (idx.toFloat() / (filtered.size - 1).coerceAtLeast(1)) * graphW
+                    // Time-axis: x proportional to date within [cutoff, today]
+                    val axisStart = cutoff.toEpochDay().toFloat()
+                    val axisEnd   = today.toEpochDay().toFloat()
+                    val axisDays  = (axisEnd - axisStart).coerceAtLeast(1f)
+
+                    fun xOfDate(date: LocalDate): Float =
+                        padLeft + ((date.toEpochDay() - axisStart) / axisDays) * graphW
 
                     fun yOf(weight: Float): Float =
                         padTop + graphH - ((weight - minW) / rangeW) * graphH
@@ -144,11 +149,12 @@ fun WeightGraph(
                         drawText(measured, topLeft = Offset(0f, y - measured.size.height / 2f))
                     }
 
-                    // Line path
+                    // Line path — gaps where data is missing are visually apparent
                     if (filtered.size > 1) {
                         val path = Path()
                         filtered.forEachIndexed { i, entry ->
-                            val x = xOf(i)
+                            val date = try { LocalDate.parse(entry.date) } catch (_: Exception) { return@forEachIndexed }
+                            val x = xOfDate(date)
                             val y = yOf(entry.weight)
                             if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
                         }
@@ -156,31 +162,23 @@ fun WeightGraph(
                     }
 
                     // Dots
-                    filtered.forEachIndexed { i, entry ->
-                        val x = xOf(i)
+                    filtered.forEach { entry ->
+                        val date = try { LocalDate.parse(entry.date) } catch (_: Exception) { return@forEach }
+                        val x = xOfDate(date)
                         val y = yOf(entry.weight)
-                        val isToday = entry.date == today.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                        val isToday = date == today
                         val dotC = if (isToday) todayDotColor else dotColor
                         drawCircle(Color.Black, radius = 5f, center = Offset(x, y))
                         drawCircle(dotC, radius = 4f, center = Offset(x, y))
                     }
 
-                    // X-axis: show first, middle, last date labels
-                    if (filtered.size >= 2) {
-                        val indices = when {
-                            filtered.size <= 3 -> filtered.indices.toList()
-                            else -> listOf(0, filtered.size / 2, filtered.size - 1)
-                        }
-                        indices.forEach { i ->
-                            val dateStr = try {
-                                val d = LocalDate.parse(filtered[i].date)
-                                if (range == WeightRange.YEAR) "${d.monthValue}/${d.dayOfMonth}"
-                                else "${d.monthValue}/${d.dayOfMonth}"
-                            } catch (_: Exception) { filtered[i].date }
-                            val measured = textMeasurer.measure(dateStr, TextStyle(fontSize = 8.sp, color = labelColor))
-                            val x = xOf(i) - measured.size.width / 2f
-                            drawText(measured, topLeft = Offset(x.coerceIn(0f, w - measured.size.width), h - measured.size.height))
-                        }
+                    // X-axis labels: start, mid, end of the time window (fixed dates, not entry positions)
+                    val labelDates = listOf(cutoff, cutoff.plusDays(range.days / 2), today)
+                    labelDates.forEachIndexed { i, date ->
+                        val dateStr = "${date.monthValue}/${date.dayOfMonth}"
+                        val measured = textMeasurer.measure(dateStr, TextStyle(fontSize = 8.sp, color = labelColor))
+                        val x = xOfDate(date) - measured.size.width / 2f
+                        drawText(measured, topLeft = Offset(x.coerceIn(0f, w - measured.size.width), h - measured.size.height))
                     }
                 }
             }
