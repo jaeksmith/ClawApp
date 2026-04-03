@@ -189,6 +189,12 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
                 val entries = extra["entries"] as? List<Any?> ?: emptyList()
                 weightRepository.applyEntries(entries)
             }
+            "health_data" -> {
+                @Suppress("UNCHECKED_CAST")
+                val hr = extra["heartRate"] as? List<Any?> ?: emptyList()
+                val bp = extra["bloodPressure"] as? List<Any?> ?: emptyList()
+                weightRepository.applyHealthData(hr, bp)
+            }
             "task_update" -> {
                 @Suppress("UNCHECKED_CAST")
                 val active    = extra["active"]    as? List<Any?> ?: emptyList()
@@ -225,6 +231,10 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
 
     override fun onWeightData(entries: List<Any?>) {
         weightRepository.applyEntries(entries)
+    }
+
+    override fun onHealthData(heartRate: List<Any?>, bloodPressure: List<Any?>) {
+        weightRepository.applyHealthData(heartRate, bloodPressure)
     }
 
     override fun onCatStateChanged(catName: String, state: String, stateSetAt: Long?, source: String) {

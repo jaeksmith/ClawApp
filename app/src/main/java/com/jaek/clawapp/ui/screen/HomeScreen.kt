@@ -56,7 +56,12 @@ fun HomeScreen(
     onRestartRepeating: () -> Unit = {},
     onConfirmLocation: (confirmedName: String) -> Unit = {},
     weightEntries: List<com.jaek.clawapp.model.WeightEntry> = emptyList(),
-    onSaveWeight: (date: String, weight: Float, notes: String) -> Unit = { _, _, _ -> },
+    heartRateEntries: List<com.jaek.clawapp.model.HeartRateEntry> = emptyList(),
+    bloodPressureEntries: List<com.jaek.clawapp.model.BloodPressureEntry> = emptyList(),
+    onSaveWeight: (date: String, weight: Float) -> Unit = { _, _ -> },
+    onSaveHeartRate: (date: String, bpm: Int) -> Unit = { _, _ -> },
+    onSaveBloodPressure: (date: String, systolic: Int, diastolic: Int) -> Unit = { _, _, _ -> },
+    onHealthTap: () -> Unit = {},
     activeTasks: List<com.jaek.clawapp.model.ClawTask> = emptyList(),
     recentCompleted: List<com.jaek.clawapp.model.ClawTask> = emptyList(),
     onTaskPanelClick: () -> Unit = {}
@@ -208,14 +213,17 @@ fun HomeScreen(
                 onClick = onTaskPanelClick
             )
 
-            // Weight graph
-            if (weightEntries.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                WeightGraph(
-                    entries = weightEntries,
-                    onSaveEntry = onSaveWeight
-                )
-            }
+            // Health mini panel
+            Spacer(Modifier.height(8.dp))
+            HealthMiniPanel(
+                weightEntries = weightEntries,
+                heartRateEntries = heartRateEntries,
+                bloodPressureEntries = bloodPressureEntries,
+                onSaveWeight = onSaveWeight,
+                onSaveHeartRate = onSaveHeartRate,
+                onSaveBloodPressure = onSaveBloodPressure,
+                onTapGraph = onHealthTap
+            )
         }
     }
 

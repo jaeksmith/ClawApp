@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
 private enum class Screen {
     HOME, SETTINGS, CAT_DETAIL,
     NOTIFICATIONS, NOTIFICATION_EDIT,
-    QUICK_CONTROLS, LOG, TASKS
+    QUICK_CONTROLS, LOG, TASKS, HEALTH
 }
 
 class MainActivity : ComponentActivity() {
@@ -46,6 +46,8 @@ class MainActivity : ComponentActivity() {
     private val locationTracking = mutableStateOf(true)
     private val namedPlaces = mutableStateOf<List<String>>(emptyList())
     private val weightEntries = mutableStateOf<List<com.jaek.clawapp.model.WeightEntry>>(emptyList())
+    private val heartRateEntries = mutableStateOf<List<com.jaek.clawapp.model.HeartRateEntry>>(emptyList())
+    private val bloodPressureEntries = mutableStateOf<List<com.jaek.clawapp.model.BloodPressureEntry>>(emptyList())
     private val activeTasks = mutableStateOf<List<com.jaek.clawapp.model.ClawTask>>(emptyList())
     private val recentCompleted = mutableStateOf<List<com.jaek.clawapp.model.ClawTask>>(emptyList())
     private val taskLastFetch = mutableStateOf<Long?>(null)
@@ -96,6 +98,12 @@ class MainActivity : ComponentActivity() {
             weightCollectJob?.cancel()
             weightCollectJob = lifecycleScope.launch {
                 svc.weightRepository.entries.collect { weightEntries.value = it }
+            }
+            lifecycleScope.launch {
+                svc.weightRepository.heartRate.collect { heartRateEntries.value = it }
+            }
+            lifecycleScope.launch {
+                svc.weightRepository.bloodPressure.collect { bloodPressureEntries.value = it }
             }
             taskCollectJob?.cancel()
             taskCollectJob = lifecycleScope.launch {
@@ -166,6 +174,7 @@ class MainActivity : ComponentActivity() {
                         Screen.NOTIFICATIONS    -> Screen.SETTINGS
                         Screen.LOG              -> Screen.SETTINGS
                         Screen.TASKS            -> Screen.HOME
+                        Screen.HEALTH           -> Screen.HOME
                         else                    -> Screen.HOME
                     }
                 }
@@ -190,12 +199,21 @@ class MainActivity : ComponentActivity() {
                             clawService?.locationTracker?.saveCurrentAsNamedLocation(name)
                         },
                         weightEntries = weightEntries.value,
-                        onSaveWeight = { date, w, notes ->
-                            clawService?.weightRepository?.saveEntry(date, w, notes)
+                        heartRateEntries = heartRateEntries.value,
+                        bloodPressureEntries = bloodPressureEntries.value,
+                        onSaveWeight = { date, w ->
+                            clawService?.weightRepository?.saveEntry(date, w)
+                        },
+                        onSaveHeartRate = { date, bpm ->
+                            clawService?.weightRepository?.saveHeartRate(date, bpm)
+                        },
+                        onSaveBloodPressure = { date, sys, dia ->
+                            clawService?.weightRepository?.saveBloodPressure(date, sys, dia)
                         },
                         activeTasks = activeTasks.value,
                         recentCompleted = recentCompleted.value,
-                        onTaskPanelClick = { currentScreen = Screen.TASKS }
+                        onTaskPanelClick = { currentScreen = Screen.TASKS },
+                        onHealthTap = { currentScreen = Screen.HEALTH }
                     )
 
                     Screen.SETTINGS -> SettingsScreen(
@@ -257,6 +275,13 @@ class MainActivity : ComponentActivity() {
                         recentCompleted = recentCompleted.value,
                         lastFetchMs = taskLastFetch.value,
                         onRefresh = { /* push-only; no manual refresh needed */ },
+                        onBack = { currentScreen = Screen.HOME }
+                    )
+
+                    Screen.HEALTH -> HealthScreen(
+                        weightEntries = weightEntries.value,
+                        heartRateEntries = heartRateEntries.value,
+                        bloodPressureEntries = bloodPressureEntries.value,
                         onBack = { currentScreen = Screen.HOME }
                     )
 
