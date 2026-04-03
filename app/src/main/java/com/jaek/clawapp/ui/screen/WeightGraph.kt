@@ -34,7 +34,7 @@ fun WeightGraph(
     entries: List<WeightEntry>,
     onSaveEntry: (date: String, weight: Float, notes: String) -> Unit
 ) {
-    var range by remember { mutableStateOf(WeightRange.YEAR) }
+    var range by remember { mutableStateOf(WeightRange.MONTH) }
     var showEntryDialog by remember { mutableStateOf(false) }
     var dialogWeight by remember { mutableStateOf("") }
     var dialogNotes by remember { mutableStateOf("") }
