@@ -11,7 +11,8 @@ data class ClawTask(
     val status: String,         // running | stalled | complete | failed
     val channel: String?,
     val description: String?,
-    val notes: String?
+    val notes: String?,
+    val priorFailures: Int = 0
 ) {
     val isActive: Boolean get() = status == "running" || status == "stalled"
     val isStalled: Boolean get() = status == "running" && System.currentTimeMillis() / 1000 > timeoutAt

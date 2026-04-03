@@ -207,6 +207,11 @@ fun CollapsibleTaskCard(task: ClawTask, dimmed: Boolean = false, initiallyExpand
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     MetaChip("type:${task.type}", alpha)
                     if (task.spawnedAt > 0) MetaChip("spawned:${fmt.format(Date(task.spawnedAt * 1000))}", alpha)
+                    if (task.priorFailures > 0) Text(
+                        "${task.priorFailures} prior failure${if (task.priorFailures > 1) "s" else ""}",
+                        fontSize = 10.sp,
+                        color = Color(0xFFFFC107).copy(alpha = alpha)
+                    )
                     if (effectiveStatus == "running" && task.timeoutAt > 0) {
                         val remaining = task.timeoutAt - System.currentTimeMillis() / 1000
                         if (remaining > 0) {

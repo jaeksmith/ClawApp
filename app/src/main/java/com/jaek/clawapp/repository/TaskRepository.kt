@@ -44,7 +44,8 @@ class TaskRepository {
                 status      = m["status"] as? String ?: "running",
                 channel     = m["channel"] as? String,
                 description = m["description"] as? String,
-                notes       = m["notes"] as? String
+                notes       = m["notes"] as? String,
+                priorFailures = (m["priorFailures"] as? Number)?.toInt() ?: 0
             )
         }
 }
