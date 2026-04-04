@@ -36,7 +36,7 @@ fun NoteEditorScreen(
     var isEditMode by remember { mutableStateOf(startInEditMode) }
     var name by remember { mutableStateOf(initialNote?.name ?: "") }
     var contentValue by remember { mutableStateOf(TextFieldValue(initialNote?.content ?: "")) }
-    var tags by remember { mutableStateOf(initialNote?.tags?.toMutableList() ?: mutableListOf()) }
+    var tags by remember { mutableStateOf(initialNote?.tags ?: emptyList<String>()) }
     var priority by remember { mutableStateOf(initialNote?.priority ?: 0.5f) }
     var show by remember { mutableStateOf(initialNote?.show ?: true) }
     var metaExpanded by remember { mutableStateOf(isEditMode) }
@@ -154,22 +154,19 @@ fun NoteEditorScreen(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    listOf(
-                        "B" to { insertMarkdown("**", "**") },
-                        "I" to { insertMarkdown("_", "_") },
-                        "H1" to { insertMarkdown("# ") },
-                        "H2" to { insertMarkdown("## ") },
-                        "List" to { insertMarkdown("- ") },
-                        "☑" to { insertMarkdown("- [ ] ") }
-                    ).forEach { (label, action) ->
+                    @Composable fun FmtBtn(label: String, onClick: () -> Unit) {
                         OutlinedButton(
-                            onClick = action,
+                            onClick = onClick,
                             modifier = Modifier.height(32.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                        ) {
-                            Text(label, fontSize = 12.sp)
-                        }
+                        ) { Text(label, fontSize = 12.sp) }
                     }
+                    FmtBtn("B") { insertMarkdown("**", "**") }
+                    FmtBtn("I") { insertMarkdown("_", "_") }
+                    FmtBtn("H1") { insertMarkdown("# ") }
+                    FmtBtn("H2") { insertMarkdown("## ") }
+                    FmtBtn("List") { insertMarkdown("- ") }
+                    FmtBtn("☑") { insertMarkdown("- [ ] ") }
                 }
             }
 
@@ -241,7 +238,9 @@ fun NoteEditorScreen(
                                 label = { Text(tag, fontSize = 11.sp) },
                                 trailingIcon = {
                                     TextButton(onClick = {
-                                        tags = tags.toMutableList().also { it.removeAt(idx) }
+                                        val updated = tags.toMutableList()
+                                        updated.removeAt(idx)
+                                        tags = updated
                                     }, contentPadding = PaddingValues(0.dp)) {
                                         Text("✕", fontSize = 10.sp)
                                     }
@@ -260,7 +259,7 @@ fun NoteEditorScreen(
                             keyboardActions = androidx.compose.foundation.text.KeyboardActions(
                                 onDone = {
                                     if (addTagText.isNotBlank()) {
-                                        tags = (tags + addTagText.trim()).toMutableList()
+                                        tags = tags + addTagText.trim()
                                         addTagText = ""
                                     }
                                 }
