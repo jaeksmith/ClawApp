@@ -56,6 +56,7 @@ class MainActivity : ComponentActivity() {
     private val taskLastFetch = mutableStateOf<Long?>(null)
     private val notesList = mutableStateOf<List<Note>>(emptyList())
     private val noteSettings = mutableStateOf(NoteSettings())
+    private val selectedNoteWithContent = mutableStateOf<Note?>(null)
     private var connectionCollectJob: Job? = null
     private var locationCollectJob: Job? = null
     private var placesCollectJob: Job? = null
@@ -180,6 +181,14 @@ class MainActivity : ComponentActivity() {
 
                 var selectedNote by remember { mutableStateOf<Note?>(null) }
                 var noteNavOrigin by remember { mutableStateOf(Screen.HOME) }
+
+                // Fetch full note content whenever selectedNote changes (list notes lack content)
+                LaunchedEffect(selectedNote?.id) {
+                    val id = selectedNote?.id ?: return@LaunchedEffect
+                    val svc = clawService ?: return@LaunchedEffect
+                    val full = svc.noteRepository.fetchNote(id)
+                    if (full != null) selectedNote = full
+                }
 
                 // Context-aware back navigation
                 BackHandler(enabled = currentScreen != Screen.HOME) {
