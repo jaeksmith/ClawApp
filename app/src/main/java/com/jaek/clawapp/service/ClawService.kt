@@ -116,10 +116,10 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
         weightRepository.sendWsMessage = { msg -> relay?.send(msg) }
         noteRepository.sendWsMessage = { msg -> relay?.send(msg) }
         val prefs2 = getSharedPreferences("claw_settings", Context.MODE_PRIVATE)
-        val relayHttpUrl = prefs2.getString("relay_url", null)?.replace("ws://", "http://")?.replace("wss://", "https://")?.let {
-            // WS port 18790 -> HTTP port 18791
-            it.replace(":18790", ":18791")
-        }
+        val relayHttpUrl = (prefs2.getString("relay_url", null) ?: relayUrl)
+            .replace("ws://", "http://")
+            .replace("wss://", "https://")
+            .replace(":18790", ":18791")
         noteRepository.baseHttpUrl = relayHttpUrl
         noteRepository.authToken = prefs2.getString("relay_token", null) ?: "7cbb1baa6b7737dfeae90c9865ec0e14"
 

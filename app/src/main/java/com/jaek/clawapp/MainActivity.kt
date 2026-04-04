@@ -182,12 +182,19 @@ class MainActivity : ComponentActivity() {
                 var selectedNote by remember { mutableStateOf<Note?>(null) }
                 var noteNavOrigin by remember { mutableStateOf(Screen.HOME) }
 
-                // Fetch full note content whenever selectedNote changes (list notes lack content)
-                LaunchedEffect(selectedNote?.id) {
+                // Fetch full note content when navigating to a note screen
+                // Use a separate state to track which id has been fetched to avoid re-fetch loops
+                var fetchedNoteId by remember { mutableStateOf<String?>(null) }
+                LaunchedEffect(selectedNote?.id, currentScreen) {
                     val id = selectedNote?.id ?: return@LaunchedEffect
+                    if (currentScreen != Screen.NOTE_VIEW && currentScreen != Screen.NOTE_EDIT) return@LaunchedEffect
+                    if (fetchedNoteId == id) return@LaunchedEffect // already fetched
                     val svc = clawService ?: return@LaunchedEffect
                     val full = svc.noteRepository.fetchNote(id)
-                    if (full != null) selectedNote = full
+                    if (full != null) {
+                        fetchedNoteId = id
+                        selectedNote = full
+                    }
                 }
 
                 // Context-aware back navigation
