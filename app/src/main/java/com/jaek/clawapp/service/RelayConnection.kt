@@ -31,6 +31,7 @@ class RelayConnection(
         fun onRepeatingStateUpdate(raw: Map<String, Any?>)
         fun onWeightData(entries: List<Any?>)
         fun onHealthData(heartRate: List<Any?>, bloodPressure: List<Any?>)
+        fun onNotesData(notes: List<Any?>, settings: Map<String, Any?>?)
     }
 
     private val client = OkHttpClient.Builder()
@@ -173,6 +174,13 @@ class RelayConnection(
                             val hr = msg["heartRate"] as? List<Any?> ?: emptyList()
                             val bp = msg["bloodPressure"] as? List<Any?> ?: emptyList()
                             handler.post { listener?.onHealthData(hr, bp) }
+                        }
+                        "notes_data" -> {
+                            @Suppress("UNCHECKED_CAST")
+                            val notesList = msg["notes"] as? List<Any?> ?: emptyList()
+                            @Suppress("UNCHECKED_CAST")
+                            val noteSettings = msg["settings"] as? Map<String, Any?>
+                            handler.post { listener?.onNotesData(notesList, noteSettings) }
                         }
                     }
 

@@ -32,7 +32,10 @@ import com.jaek.clawapp.model.CatNotification
 import com.jaek.clawapp.model.CatState
 import com.jaek.clawapp.model.MuteState
 import com.jaek.clawapp.model.RepeatingTimerState
+import com.jaek.clawapp.model.Note
+import com.jaek.clawapp.model.NoteSettings
 import com.jaek.clawapp.service.LocationPoint
+import androidx.compose.ui.draw.rotate
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -64,7 +67,11 @@ fun HomeScreen(
     onHealthTap: () -> Unit = {},
     activeTasks: List<com.jaek.clawapp.model.ClawTask> = emptyList(),
     recentCompleted: List<com.jaek.clawapp.model.ClawTask> = emptyList(),
-    onTaskPanelClick: () -> Unit = {}
+    onTaskPanelClick: () -> Unit = {},
+    notes: List<Note> = emptyList(),
+    noteSettings: NoteSettings = NoteSettings(),
+    onNotesListClick: () -> Unit = {},
+    onNoteClick: (Note) -> Unit = {}
 ) {
     var showLocationDialog by remember { mutableStateOf(false) }
     var locationCorrectionText by remember { mutableStateOf("") }
@@ -223,6 +230,12 @@ fun HomeScreen(
                 onSaveHeartRate = onSaveHeartRate,
                 onSaveBloodPressure = onSaveBloodPressure,
                 onTapGraph = onHealthTap
+            )
+            NotesPanelRow(
+                notes = notes,
+                maxShow = noteSettings.maxShowOnHome,
+                onListClick = onNotesListClick,
+                onNoteClick = onNoteClick
             )
         }
     }
@@ -500,6 +513,72 @@ fun CatTile(
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun NotesPanelRow(
+    notes: List<Note>,
+    maxShow: Int,
+    onListClick: () -> Unit,
+    onNoteClick: (Note) -> Unit
+) {
+    val visibleNotes = notes
+        .filter { it.show && !it.archived }
+        .sortedWith(compareByDescending<Note> { it.priority }.thenByDescending { it.modifiedAt })
+        .take(maxShow)
+
+    Surface(
+        modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        tonalElevation = 1.dp
+    ) {
+        Row(
+            modifier = androidx.compose.ui.Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left: "NOTES" label rotated 90°, tappable
+            Box(
+                modifier = androidx.compose.ui.Modifier
+                    .clickable { onListClick() }
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "NOTES",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = androidx.compose.ui.Modifier.rotate(-90f)
+                )
+            }
+
+            Spacer(androidx.compose.ui.Modifier.width(8.dp))
+
+            // Right: up to maxShow note names
+            if (visibleNotes.isEmpty()) {
+                Text(
+                    "No notes",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    visibleNotes.forEach { note ->
+                        Text(
+                            text = note.name,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = androidx.compose.ui.Modifier.clickable { onNoteClick(note) },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
         }
     }

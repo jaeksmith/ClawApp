@@ -17,6 +17,8 @@ import com.jaek.clawapp.model.CatLocation
 import com.jaek.clawapp.model.CatNotification
 import com.jaek.clawapp.model.CatState
 import com.jaek.clawapp.model.MuteState
+import com.jaek.clawapp.model.Note
+import com.jaek.clawapp.model.NoteSettings
 import com.jaek.clawapp.service.LocationPoint
 import com.jaek.clawapp.service.ClawService
 import com.jaek.clawapp.AppLogger
@@ -29,7 +31,8 @@ import kotlinx.coroutines.launch
 private enum class Screen {
     HOME, SETTINGS, CAT_DETAIL,
     NOTIFICATIONS, NOTIFICATION_EDIT,
-    QUICK_CONTROLS, LOG, TASKS, HEALTH
+    QUICK_CONTROLS, LOG, TASKS, HEALTH,
+    NOTES_LIST, NOTE_VIEW, NOTE_EDIT
 }
 
 class MainActivity : ComponentActivity() {
@@ -51,6 +54,8 @@ class MainActivity : ComponentActivity() {
     private val activeTasks = mutableStateOf<List<com.jaek.clawapp.model.ClawTask>>(emptyList())
     private val recentCompleted = mutableStateOf<List<com.jaek.clawapp.model.ClawTask>>(emptyList())
     private val taskLastFetch = mutableStateOf<Long?>(null)
+    private val notesList = mutableStateOf<List<Note>>(emptyList())
+    private val noteSettings = mutableStateOf(NoteSettings())
     private var connectionCollectJob: Job? = null
     private var locationCollectJob: Job? = null
     private var placesCollectJob: Job? = null
@@ -115,6 +120,12 @@ class MainActivity : ComponentActivity() {
             lifecycleScope.launch {
                 svc.taskRepository.lastUpdateMs.collect { taskLastFetch.value = it }
             }
+            lifecycleScope.launch {
+                svc.noteRepository.notes.collect { notesList.value = it }
+            }
+            lifecycleScope.launch {
+                svc.noteRepository.settings.collect { noteSettings.value = it }
+            }
             // Read initial tracking pref
             val prefs = getSharedPreferences("claw_settings", MODE_PRIVATE)
             locationTracking.value = prefs.getBoolean("location_tracking_enabled", true)
@@ -167,6 +178,9 @@ class MainActivity : ComponentActivity() {
                 var editingNotif by remember { mutableStateOf<CatNotification?>(null) }
                 var isNewNotif by remember { mutableStateOf(false) }
 
+                var selectedNote by remember { mutableStateOf<Note?>(null) }
+                var noteNavOrigin by remember { mutableStateOf(Screen.HOME) }
+
                 // Context-aware back navigation
                 BackHandler(enabled = currentScreen != Screen.HOME) {
                     currentScreen = when (currentScreen) {
@@ -175,6 +189,9 @@ class MainActivity : ComponentActivity() {
                         Screen.LOG              -> Screen.SETTINGS
                         Screen.TASKS            -> Screen.HOME
                         Screen.HEALTH           -> Screen.HOME
+                        Screen.NOTE_EDIT        -> noteNavOrigin
+                        Screen.NOTE_VIEW        -> Screen.NOTES_LIST
+                        Screen.NOTES_LIST       -> Screen.HOME
                         else                    -> Screen.HOME
                     }
                 }
@@ -213,7 +230,15 @@ class MainActivity : ComponentActivity() {
                         activeTasks = activeTasks.value,
                         recentCompleted = recentCompleted.value,
                         onTaskPanelClick = { currentScreen = Screen.TASKS },
-                        onHealthTap = { currentScreen = Screen.HEALTH }
+                        onHealthTap = { currentScreen = Screen.HEALTH },
+                        notes = notesList.value,
+                        noteSettings = noteSettings.value,
+                        onNotesListClick = { currentScreen = Screen.NOTES_LIST },
+                        onNoteClick = { note ->
+                            selectedNote = note
+                            noteNavOrigin = Screen.HOME
+                            currentScreen = Screen.NOTE_VIEW
+                        }
                     )
 
                     Screen.SETTINGS -> SettingsScreen(
@@ -284,6 +309,85 @@ class MainActivity : ComponentActivity() {
                         bloodPressureEntries = bloodPressureEntries.value,
                         onBack = { currentScreen = Screen.HOME }
                     )
+
+                    Screen.NOTES_LIST -> NoteListScreen(
+                        notes = notesList.value,
+                        onNoteView = { note ->
+                            selectedNote = note
+                            currentScreen = Screen.NOTE_VIEW
+                        },
+                        onNoteEdit = { note ->
+                            selectedNote = note
+                            noteNavOrigin = Screen.NOTES_LIST
+                            currentScreen = Screen.NOTE_EDIT
+                        },
+                        onNewNote = {
+                            selectedNote = null
+                            noteNavOrigin = Screen.NOTES_LIST
+                            currentScreen = Screen.NOTE_EDIT
+                        },
+                        onBack = { currentScreen = Screen.HOME },
+                        onArchive = { id -> clawService?.noteRepository?.archiveNote(id) },
+                        onUnarchive = { id -> clawService?.noteRepository?.unarchiveNote(id) },
+                        onDelete = { id -> clawService?.noteRepository?.deleteNote(id) }
+                    )
+
+                    Screen.NOTE_VIEW -> {
+                        val note = selectedNote
+                        if (note != null) {
+                            NoteEditorScreen(
+                                initialNote = note,
+                                startInEditMode = false,
+                                onSave = { name, content, tags, priority, show ->
+                                    clawService?.noteRepository?.updateNote(note.id, content, name, tags, priority, show)
+                                    currentScreen = Screen.NOTES_LIST
+                                },
+                                onBack = { currentScreen = Screen.NOTES_LIST },
+                                onDelete = { id ->
+                                    clawService?.noteRepository?.deleteNote(id)
+                                    currentScreen = Screen.NOTES_LIST
+                                },
+                                onArchive = { id ->
+                                    clawService?.noteRepository?.archiveNote(id)
+                                    currentScreen = Screen.NOTES_LIST
+                                },
+                                onSaveDraft = { id, content ->
+                                    clawService?.noteRepository?.saveDraft(id, content)
+                                }
+                            )
+                        } else currentScreen = Screen.NOTES_LIST
+                    }
+
+                    Screen.NOTE_EDIT -> {
+                        NoteEditorScreen(
+                            initialNote = selectedNote,
+                            startInEditMode = true,
+                            onSave = { name, content, tags, priority, show ->
+                                val svc = clawService
+                                if (svc != null) {
+                                    val existing = selectedNote
+                                    if (existing != null) {
+                                        svc.noteRepository.updateNote(existing.id, content, name, tags, priority, show)
+                                    } else {
+                                        svc.noteRepository.createNote(name, content, tags, priority, show)
+                                    }
+                                }
+                                currentScreen = noteNavOrigin
+                            },
+                            onBack = { currentScreen = noteNavOrigin },
+                            onDelete = { id ->
+                                clawService?.noteRepository?.deleteNote(id)
+                                currentScreen = Screen.NOTES_LIST
+                            },
+                            onArchive = { id ->
+                                clawService?.noteRepository?.archiveNote(id)
+                                currentScreen = Screen.NOTES_LIST
+                            },
+                            onSaveDraft = { id, content ->
+                                clawService?.noteRepository?.saveDraft(id, content)
+                            }
+                        )
+                    }
 
                     Screen.QUICK_CONTROLS -> QuickControlsScreen(
                         muteState = muteState.value,

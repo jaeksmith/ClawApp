@@ -16,6 +16,7 @@ import com.jaek.clawapp.model.CatLocation
 import com.jaek.clawapp.repository.CatRepository
 import com.jaek.clawapp.repository.WeightRepository
 import com.jaek.clawapp.repository.TaskRepository
+import com.jaek.clawapp.repository.NoteRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,6 +53,9 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
 
     // Task repository — updated via WS push (no polling)
     val taskRepository = TaskRepository()
+
+    // Note repository — updated via WS push
+    val noteRepository = NoteRepository()
 
     // Observable connection state — always emits current value on collection (no race)
     private val _connectionState = MutableStateFlow(false)
@@ -110,6 +114,14 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
         catRepository.sendWsMessage = { msg -> relay?.send(msg) }
         locationTracker.sendWsMessage = { msg -> relay?.send(msg) }
         weightRepository.sendWsMessage = { msg -> relay?.send(msg) }
+        noteRepository.sendWsMessage = { msg -> relay?.send(msg) }
+        val prefs2 = getSharedPreferences("claw_settings", Context.MODE_PRIVATE)
+        val relayHttpUrl = prefs2.getString("relay_url", null)?.replace("ws://", "http://")?.replace("wss://", "https://")?.let {
+            // WS port 18790 -> HTTP port 18791
+            it.replace(":18790", ":18791")
+        }
+        noteRepository.baseHttpUrl = relayHttpUrl
+        noteRepository.authToken = prefs2.getString("relay_token", null) ?: "7cbb1baa6b7737dfeae90c9865ec0e14"
 
         // TaskRepository is push-only — no init needed here
 
@@ -201,6 +213,11 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
                 val completed = extra["completed"] as? List<Any?> ?: emptyList()
                 taskRepository.applyUpdate(active, completed)
             }
+            "notes_update" -> {
+                @Suppress("UNCHECKED_CAST")
+                val notesList = extra["notes"] as? List<Any?> ?: emptyList()
+                noteRepository.applyNotesList(notesList)
+            }
             else -> AppLogger.w(TAG, "Unknown command action: $action")
         }
     }
@@ -235,6 +252,11 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
 
     override fun onHealthData(heartRate: List<Any?>, bloodPressure: List<Any?>) {
         weightRepository.applyHealthData(heartRate, bloodPressure)
+    }
+
+    override fun onNotesData(notes: List<Any?>, settings: Map<String, Any?>?) {
+        noteRepository.applyNotesList(notes)
+        if (settings != null) noteRepository.applySettings(settings)
     }
 
     override fun onCatStateChanged(catName: String, state: String, stateSetAt: Long?, source: String) {
