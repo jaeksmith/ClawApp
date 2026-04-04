@@ -34,11 +34,11 @@ fun NoteEditorScreen(
 ) {
     val isNew = initialNote == null
     var isEditMode by remember { mutableStateOf(startInEditMode) }
-    var name by remember { mutableStateOf(initialNote?.name ?: "") }
-    var contentValue by remember { mutableStateOf(TextFieldValue(initialNote?.content ?: "")) }
-    var tags by remember { mutableStateOf(initialNote?.tags ?: emptyList<String>()) }
-    var priority by remember { mutableStateOf(initialNote?.priority ?: 0.5f) }
-    var show by remember { mutableStateOf(initialNote?.show ?: true) }
+    var name by remember(initialNote?.name) { mutableStateOf(initialNote?.name ?: "") }
+    var contentValue by remember(initialNote?.content) { mutableStateOf(TextFieldValue(initialNote?.content ?: "")) }
+    var tags by remember(initialNote?.tags) { mutableStateOf(initialNote?.tags ?: emptyList<String>()) }
+    var priority by remember(initialNote?.priority) { mutableStateOf(initialNote?.priority ?: 0.5f) }
+    var show by remember(initialNote?.show) { mutableStateOf(initialNote?.show ?: true) }
     var metaExpanded by remember { mutableStateOf(isEditMode) }
     var selectedTab by remember { mutableStateOf(0) } // 0=Visual, 1=Source
     var addTagText by remember { mutableStateOf("") }

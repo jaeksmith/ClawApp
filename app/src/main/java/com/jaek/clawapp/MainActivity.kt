@@ -188,7 +188,7 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(selectedNote?.id, currentScreen) {
                     val id = selectedNote?.id ?: return@LaunchedEffect
                     if (currentScreen != Screen.NOTE_VIEW && currentScreen != Screen.NOTE_EDIT) return@LaunchedEffect
-                    if (fetchedNoteId == id) return@LaunchedEffect // already fetched
+                    if (fetchedNoteId == id && selectedNote?.content?.isNotEmpty() == true) return@LaunchedEffect
                     val svc = clawService ?: return@LaunchedEffect
                     val full = svc.noteRepository.fetchNote(id)
                     if (full != null) {
