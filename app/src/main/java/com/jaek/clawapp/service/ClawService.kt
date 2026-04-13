@@ -321,7 +321,13 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
             }, if (meow || phoneSound) 1500L else 0L)
         }
 
-        showNotification("🐱 Cat Watch", message)
+        // Only show a visible notification if phoneSound or tts is configured
+        // (meow-only notifications are audio-only by design)
+        val showVisualNotification = delivery?.get("notification") as? Boolean
+            ?: (phoneSound || doTts)  // fall back: show if phone sound or TTS is active
+        if (showVisualNotification) {
+            showNotification("🐱 Cat Watch", message)
+        }
     }
 
     private fun playRawSound(resId: Int, bypassSilent: Boolean) {
