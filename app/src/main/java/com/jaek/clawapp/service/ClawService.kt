@@ -31,6 +31,7 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     companion object {
         const val TAG = "ClawService"
         const val CHANNEL_ID = "claw_service"
+        const val CHANNEL_ALERT_ID = "claw_alerts_notify"
         const val NOTIFICATION_ID = 1
         const val ACTION_PING_PHONE = "com.jaek.clawapp.PING_PHONE"
         const val EXTRA_MESSAGE = "message"
@@ -389,12 +390,12 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     }
 
     private fun showNotification(title: String, text: String) {
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(this, CHANNEL_ALERT_ID)
             .setContentTitle(title)
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)
             .build()
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -432,15 +433,20 @@ class ClawService : Service(), TextToSpeech.OnInitListener, RelayConnection.Comm
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "Claw Service",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "Keeps Claw connected in the background"
-        }
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.createNotificationChannel(channel)
+        // Service channel — silent, keeps foreground notification
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_ID, "Claw Service", NotificationManager.IMPORTANCE_LOW).apply {
+                description = "Keeps Claw connected in the background"
+            }
+        )
+        // Alert channel — with sound, for notify/cat commands
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_ALERT_ID, "Claw Alerts", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Alerts and notifications from Claw"
+                enableVibration(true)
+            }
+        )
     }
 
     private fun buildNotification(text: String): Notification {
