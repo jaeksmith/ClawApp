@@ -12,6 +12,8 @@ object CatImages {
         "nommy"                 -> R.drawable.cat_nommy
         "smoresy"               -> R.drawable.cat_smoresy
         "cay"                   -> R.drawable.cat_cay
+        "kaiju"                 -> R.drawable.cat_kaiju
+        "nim"                   -> R.drawable.cat_nim
         else                    -> null
     }
 }
